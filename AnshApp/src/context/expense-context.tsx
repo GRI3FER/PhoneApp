@@ -251,3 +251,11 @@ export function getBudgetStatus(total: number, budget: number) {
   }
   return { label: 'Over budget', color: '#ef5350', backgroundColor: '#2c0a0a' };
 }
+
+export const CATEGORY_COLORS: Record<ExpenseCategory, string> = {
+  Food: '#FF6B6B',
+  Transport: '#4ECDC4',
+  Groceries: '#95E1D3',
+  Fun: '#FFE66D',
+  Other: '#95A5A6',
+};
