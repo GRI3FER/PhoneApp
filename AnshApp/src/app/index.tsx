@@ -22,7 +22,15 @@ import {
   useExpenses,
 } from '@/context/expense-context';
 
-const CATEGORIES: ExpenseCategory[] = ['Food', 'Transport', 'Fun', 'Other'];
+const CATEGORIES: ExpenseCategory[] = ['Food', 'Transport', 'Groceries', 'Fun', 'Other'];
+
+const LABEL_SUGGESTIONS: Record<ExpenseCategory, string> = {
+  Food: 'e.g., Pizza, Ice Cream',
+  Transport: 'e.g., Uber, Lyft',
+  Groceries: 'e.g., Milk, Bread',
+  Fun: 'e.g., Movie, Arcade',
+  Other: 'e.g., Item name',
+};
 
 type EditingExpense = {
   id: string;
@@ -214,7 +222,7 @@ export default function HomeScreen() {
               <TextInput
                 value={labelInput}
                 onChangeText={setLabelInput}
-                placeholder="e.g., Pizza, Movie"
+                placeholder={selectedCategory ? LABEL_SUGGESTIONS[selectedCategory] : 'Item name'}
                 placeholderTextColor="#9ca3af"
                 style={styles.input}
               />

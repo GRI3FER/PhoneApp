@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
-export type ExpenseCategory = 'Food' | 'Transport' | 'Fun' | 'Other';
+export type ExpenseCategory = 'Food' | 'Transport' | 'Fun' | 'Groceries' | 'Other';
 
 export type Expense = {
   id: string;
@@ -36,7 +36,7 @@ const MAX_EXPENSES = 500;
 const ExpenseContext = createContext<ExpenseContextValue | undefined>(undefined);
 
 function isValidCategory(value: string): value is ExpenseCategory {
-  return value === 'Food' || value === 'Transport' || value === 'Fun' || value === 'Other';
+  return value === 'Food' || value === 'Transport' || value === 'Fun' || value === 'Groceries' || value === 'Other';
 }
 
 function sanitizeExpense(raw: Partial<Expense>): Expense | null {
