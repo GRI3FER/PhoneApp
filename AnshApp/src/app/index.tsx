@@ -8,7 +8,10 @@ import {
   Text,
   TextInput,
   View,
+  TouchableOpacity,
+  Alert,
 } from 'react-native';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 
 import {
   ExpenseCategory,
@@ -19,14 +22,24 @@ import {
   useExpenses,
 } from '@/context/expense-context';
 
-const CATEGORIES: ExpenseCategory[] = ['Food', 'Coffee', 'Transport', 'Fun', 'Other'];
+const CATEGORIES: ExpenseCategory[] = ['Food', 'Transport', 'Fun', 'Other'];
+
+type EditingExpense = {
+  id: string;
+  category: ExpenseCategory;
+  amount: number;
+  label: string;
+} | null;
 
 export default function HomeScreen() {
-  const { expenses, budget, addExpense, setBudget, budgetInitialized, isLoading } = useExpenses();
+  const { expenses, budget, addExpense, editExpense, deleteExpense, setBudget, budgetInitialized, isLoading } = useExpenses();
   const [budgetSetupAmount, setBudgetSetupAmount] = useState(budget.toFixed(2));
   const [selectedCategory, setSelectedCategory] = useState<ExpenseCategory | null>(null);
   const [amountInput, setAmountInput] = useState('');
   const [labelInput, setLabelInput] = useState('');
+  const [editingExpense, setEditingExpense] = useState<EditingExpense>(null);
+  const [editAmount, setEditAmount] = useState('');
+  const [editLabel, setEditLabel] = useState('');
 
   const todayExpenses = useMemo(() => {
     const now = new Date();
@@ -42,6 +55,16 @@ export default function HomeScreen() {
 
   const todayTotal = getTodayTotal(expenses);
   const status = getBudgetStatus(todayTotal, budget);
+  const percentSpent = Math.min((todayTotal / budget) * 100, 100);
+  const percentRemaining = 100 - percentSpent;
+
+  // Determine pie chart color based on percentage
+  let pieColor = '#4caf50'; // green
+  if (percentSpent >= 75 && percentSpent < 100) {
+    pieColor = '#ffb74d'; // yellow
+  } else if (percentSpent >= 100) {
+    pieColor = '#ef5350'; // red
+  }
 
   function onSetupBudget() {
     const value = Number.parseFloat(budgetSetupAmount);
@@ -65,6 +88,32 @@ export default function HomeScreen() {
     setAmountInput('');
     setLabelInput('');
     setSelectedCategory(null);
+  }
+
+  function onEditExpense(expense: any) {
+    setEditingExpense(expense);
+    setEditAmount(expense.amount.toString());
+    setEditLabel(expense.label);
+  }
+
+  function onSaveEdit() {
+    if (!editingExpense) return;
+
+    const amount = Number.parseFloat(editAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      Alert.alert('Invalid', 'Please enter a valid amount');
+      return;
+    }
+
+    editExpense(editingExpense.id, editingExpense.category, amount, editLabel);
+    setEditingExpense(null);
+  }
+
+  function onDeleteExpense(id: string) {
+    Alert.alert('Delete', 'Remove this expense?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => deleteExpense(id) },
+    ]);
   }
 
   if (!budgetInitialized) {
@@ -95,13 +144,31 @@ export default function HomeScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: status.backgroundColor }]}>
       <View style={styles.container}>
         <Text style={styles.header}>Broke or Not?</Text>
         <Text style={styles.subHeader}>Today: {formatMoney(todayTotal)} / {formatMoney(budget)}</Text>
 
-        <View style={styles.statusCard}>
-          <Text style={[styles.statusText, { color: status.color }]}>{status.label}</Text>
+        {/* Pie Chart */}
+        <View style={styles.pieChartContainer}>
+          <View style={styles.pieChart}>
+            <View
+              style={[
+                styles.pieFilled,
+                {
+                  borderRadius: percentSpent > 50 ? 0 : 100,
+                  backgroundColor: pieColor,
+                  width: '100%',
+                  height: '100%',
+                  transform: [{ rotate: `${(percentSpent / 100) * 360}deg` }],
+                },
+              ]}
+            />
+            <View style={styles.pieInner}>
+              <Text style={styles.pieText}>{Math.round(percentSpent)}%</Text>
+            </View>
+          </View>
+          <Text style={[styles.statusText, { color: pieColor, marginTop: 12 }]}>{status.label}</Text>
         </View>
 
         <Text style={styles.sectionLabel}>Quick add</Text>
@@ -132,6 +199,9 @@ export default function HomeScreen() {
                   <Text style={styles.rowMeta}>{formatTime(item.timestamp)}</Text>
                 </View>
                 <Text style={styles.rowAmount}>{formatMoney(item.amount)}</Text>
+                <TouchableOpacity style={styles.editButton} onPress={() => onEditExpense(item)}>
+                  <MaterialCommunityIcons name="pencil" size={18} color="#1d4ed8" />
+                </TouchableOpacity>
               </View>
             )}
           />
@@ -144,7 +214,7 @@ export default function HomeScreen() {
               <TextInput
                 value={labelInput}
                 onChangeText={setLabelInput}
-                placeholder="e.g., Pizza, Uber, Movie"
+                placeholder="e.g., Pizza, Movie"
                 placeholderTextColor="#9ca3af"
                 style={styles.input}
               />
@@ -168,6 +238,50 @@ export default function HomeScreen() {
                 </Pressable>
                 <Pressable style={[styles.modalButton, styles.addButton]} onPress={onAddExpense}>
                   <Text style={styles.addButtonText}>Add</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Edit Modal */}
+        <Modal visible={editingExpense !== null} transparent animationType="fade">
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalCard}>
+              <Text style={styles.modalTitle}>Edit {editingExpense?.category}</Text>
+              <TextInput
+                value={editLabel}
+                onChangeText={setEditLabel}
+                placeholder="Label"
+                placeholderTextColor="#9ca3af"
+                style={styles.input}
+              />
+              <TextInput
+                value={editAmount}
+                onChangeText={setEditAmount}
+                keyboardType="decimal-pad"
+                placeholder="Amount"
+                placeholderTextColor="#9ca3af"
+                style={styles.input}
+              />
+              <View style={styles.modalActions}>
+                <Pressable
+                  style={[styles.modalButton, styles.deleteButton]}
+                  onPress={() => {
+                    if (editingExpense) {
+                      onDeleteExpense(editingExpense.id);
+                      setEditingExpense(null);
+                    }
+                  }}>
+                  <Text style={styles.deleteButtonText}>Delete</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.modalButton, styles.cancelButton]}
+                  onPress={() => setEditingExpense(null)}>
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </Pressable>
+                <Pressable style={[styles.modalButton, styles.addButton]} onPress={onSaveEdit}>
+                  <Text style={styles.addButtonText}>Save</Text>
                 </Pressable>
               </View>
             </View>
@@ -356,5 +470,48 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '700',
     fontSize: 16,
+  },
+  pieChartContainer: {
+    alignItems: 'center',
+    paddingVertical: 16,
+  },
+  pieChart: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#1f2937',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  pieFilled: {
+    position: 'absolute',
+  },
+  pieInner: {
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    backgroundColor: '#0a0e27',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  pieText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#ffffff',
+  },
+  editButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    marginLeft: 8,
+  },
+  deleteButton: {
+    backgroundColor: '#ef5350',
+  },
+  deleteButtonText: {
+    color: '#ffffff',
+    fontWeight: '600',
   },
 });

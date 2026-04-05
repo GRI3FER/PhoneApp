@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
-export type ExpenseCategory = 'Food' | 'Coffee' | 'Transport' | 'Fun' | 'Other';
+export type ExpenseCategory = 'Food' | 'Transport' | 'Fun' | 'Other';
 
 export type Expense = {
   id: string;
@@ -36,7 +36,7 @@ const MAX_EXPENSES = 500;
 const ExpenseContext = createContext<ExpenseContextValue | undefined>(undefined);
 
 function isValidCategory(value: string): value is ExpenseCategory {
-  return value === 'Food' || value === 'Coffee' || value === 'Transport' || value === 'Fun' || value === 'Other';
+  return value === 'Food' || value === 'Transport' || value === 'Fun' || value === 'Other';
 }
 
 function sanitizeExpense(raw: Partial<Expense>): Expense | null {
@@ -243,11 +243,11 @@ export function formatDateTime(timestamp: number) {
 
 export function getBudgetStatus(total: number, budget: number) {
   const ratio = budget > 0 ? total / budget : 0;
-  if (ratio < 0.8) {
-    return { label: "You're good", color: '#22c55e' };
+  if (ratio < 0.75) {
+    return { label: "You're good", color: '#4caf50', backgroundColor: '#0a1f0a' };
   }
-  if (ratio <= 1) {
-    return { label: 'Getting close', color: '#f59e0b' };
+  if (ratio < 1) {
+    return { label: 'Getting close', color: '#ffb74d', backgroundColor: '#2c1f0a' };
   }
-  return { label: 'Over budget', color: '#ef4444' };
+  return { label: 'Over budget', color: '#ef5350', backgroundColor: '#2c0a0a' };
 }
