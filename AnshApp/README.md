@@ -1,52 +1,183 @@
-# Welcome to your Expo app 👋
+# Broke or Not? - Expense Tracker
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+## About This App
 
-## Get started
+Broke or Not? is a mobile expense tracker that helps users monitor their daily spending against a customizable budget. Whether you're grabbing coffee, ordering lunch, or catching an Uber, this app makes it easy to track every dollar and stay mindful of your budget. The app provides instant visual feedback so you always know if you're good, getting close, or already over budget for the day.
 
-1. Install dependencies
+I chose to build this app because personal finance tracking is a real problem I face—I often lose track of how much I've spent throughout the day, and by the time I check my balance, I'm already over. This simple, friction-free app removes that anxiety with just two taps.
 
+## Features & Screens
+
+### Home Screen
+The main screen displays:
+- **Daily Budget Status**: Shows today's total spending vs. your daily budget (e.g., "$12.50 / $30.00")
+- **Budget Indicator**: Color-coded status ("You're good", "Getting close", or "Over budget") in green, yellow, or red
+- **Quick Add**: Five category buttons (Food, Coffee, Transport, Fun, Other) for fast expense entry
+- **Amount Modal**: When you tap a category, a modal pops up to enter the exact amount
+- **Today's Expenses**: Scrollable list of expenses added today with time stamps
+
+### History Screen
+Shows all your expenses throughout time:
+- **Date-Based Grouping**: Expenses are organized by day (most recent first)
+- **Daily Totals**: Each date section shows the total spend for that day
+- **Expense Details**: Each expense displays category, amount, and time
+- **Delete Ability**: Tap any expense to delete it (with confirmation)
+- **Empty State**: A friendly message appears when you have no expenses
+
+### Settings Screen
+Manage your app data:
+- **Daily Budget Input**: Edit your daily budget limit and save it
+- **Save Confirmation**: Get feedback when your budget is updated
+- **Clear All Data**: Destructive action to wipe all expenses and reset budget to $30 default
+- **Safety**: Confirmation dialog prevents accidental deletion
+
+## How to Set Up & Run
+
+### Prerequisites
+- **Node.js** (v18 or higher): Download from [nodejs.org](https://nodejs.org/)
+- **Expo Go app** on your phone (iOS or Android) OR an Android Studio emulator
+- **Git** (optional, for cloning)
+
+### Installation & Running
+
+1. **Clone the repository** (or download the code):
+   ```bash
+   git clone <repository-url>
+   cd AnshApp
+   ```
+
+2. **Install dependencies**:
    ```bash
    npm install
    ```
 
-2. Start the app
-
+3. **Start the development server**:
    ```bash
    npx expo start
    ```
 
-In the output, you'll find options to open the app in a
+4. **Open on your phone or emulator**:
+   - **Android phone with Expo Go**: Scan the QR code in your terminal with your camera or Expo Go app
+   - **Android emulator**: Press `a` in the terminal to automatically build and run on emulator
+   - **iOS simulator** (Mac only): Press `i` to open the iOS simulator
+   - **Web browser** (for testing): Press `w` to open in your browser at `http://localhost:8081`
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+### Environment & Platforms Tested
+- **Development**: Windows PC with Android Studio emulator and web browser
+- **Platforms**: Android (via emulator), Web (via browser)
+- **Framework**: Expo with React Native and TypeScript
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+### No External Dependencies Required
+This app uses only local storage (AsyncStorage) and does not require any API keys or external services.
 
-## Get a fresh project
+---
 
-When you're ready, run:
+## What Surprised Me About Mobile Development
 
-```bash
-npm run reset-project
+The thing that surprised me most was how **different the state management workflow feels** compared to web development. In a web app, you can usually assume the browser state persists (or refresh starts over). But in mobile with Expo, you constantly think about the **app lifecycle**—the app can pause, stop, and resume at any time. This means I had to be much more intentional about saving data and restoring it correctly. 
+
+I assumed it would be as simple as calling `localStorage.setItem()` once, but AsyncStorage requires async/await and careful handling of the hydration flow. Getting it right meant learning about useEffect cleanup, ensuring data loads before the UI renders, and handling corrupted data gracefully. It made me realize that **mobile development is more stateful and persistence-conscious than web development**, and I have much more respect for mobile developers now.
+
+---
+
+## Project Structure
+
+```
+AnshApp/
+├── src/
+│   ├── app/
+│   │   ├── _layout.tsx          # Navigation layout with context provider
+│   │   ├── index.tsx            # Home screen (add expenses)
+│   │   ├── explore.tsx          # History screen
+│   │   └── settings.tsx         # Settings screen
+│   ├── components/
+│   │   ├── app-tabs.tsx         # Tab navigation component
+│   │   └── ... (other components)
+│   ├── context/
+│   │   └── expense-context.tsx  # Expense state, persistence, and helpers
+│   ├── constants/
+│   │   └── theme.ts             # Color and theme constants
+│   └── global.css               # Global styles
+├── assets/                      # Images and icons
+├── package.json                 # Dependencies and scripts
+├── tsconfig.json                # TypeScript configuration
+├── SPEC.md                      # Detailed app specification
+├── REVIEW.md                    # AI code review
+├── prompt_log.md                # Prompt history and learning notes
+└── README.md                    # This file
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+---
 
-### Other setup steps
+## Technologies Used
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+- **React Native**: Framework for building native mobile apps with JavaScript
+- **Expo**: Platform & tools for building, testing, and deploying React Native apps
+- **TypeScript**: Type-safe JavaScript for better code reliability
+- **Expo Router**: File-based routing for navigation (similar to Next.js)
+- **AsyncStorage**: Local database for persisting user data
+- **React Hooks**: useState, useContext, useEffect, useMemo for state management
+- **React Navigation**: Navigation library integrated with Expo
 
-## Learn more
+---
 
-To learn more about developing your project with Expo, look at the following resources:
+## Design Decisions
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+### Why Dark Theme?
+Expense tracking is a finance app, and dark themes reduce eye strain during repeated use. They also feel modern and professional.
+
+### Why Tab Navigation?
+Three distinct screens benefit from simple tab navigation—it's the most common pattern on mobile and makes switching between views effortless.
+
+### Why Context API Instead of Redux?
+For an app this size, Context API is simpler and lighter. Redux would add unnecessary complexity without proportional benefit.
+
+### Why Separate Modal for Amount Input?
+Modal forms are a common mobile pattern. It forces the user to complete the amount entry once they've selected a category, providing a clear workflow.
+
+---
+
+## Known Limitations & Future Enhancements
+
+**Current Limitations:**
+- No monthly budget targets (only daily)
+- No data export/backup functionality
+- No recurring expenses or budget alerts
+- No charts or analytics
+
+**Possible Enhancements:**
+- Monthly budget tracking and trends
+- Push notifications for budget alerts
+- CSV export of expense history
+- Budget comparison with previous months
+- Integration with bank accounts (future)
+- Recurring expense templates
+
+---
+
+## Files in This Repository
+
+- **`src/`**: All source code
+- **`android/`**: Android native project (generated by Expo)
+- **`app.json`**: Expo configuration
+- **`package.json`**: Dependencies and scripts
+- **`SPEC.md`**: Detailed specification of features
+- **`REVIEW.md`**: AI code review against specification
+- **`prompt_log.md`**: Prompts used during development and learnings
+
+---
+
+## Questions & Support
+
+For issues or questions:
+1. Check the [Expo documentation](https://docs.expo.dev/)
+2. See [React Native docs](https://reactnative.dev/) for component usage
+3. Check the **prompt_log.md** for how specific features were built
+
+---
+
+**Built for CMU 15-113: Effective Coding with AI**  
+**Spring 2026**
 
 ## Join the community
 
