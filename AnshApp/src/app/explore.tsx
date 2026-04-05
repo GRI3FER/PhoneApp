@@ -1,8 +1,30 @@
+/**
+ * History Screen (Explore Tab)
+ * 
+ * Displays all expenses organized by date with spending analytics.
+ * Features include:
+ * - Expenses grouped by date (most recent first)
+ * - Category breakdown with pie chart visualization
+ * - Storage UI style budget bar (used vs remaining)
+ * - Tap to delete functionality with confirmation
+ * 
+ * UX Flow:
+ * 1. User sees category breakdown at top (list + stacked bar chart)
+ * 2. Bar shows spending proportions with remaining budget as grey
+ * 3. User scrolls through expenses grouped by date
+ * 4. User can tap any expense to delete it with confirmation
+ */
+
 import React, { useMemo } from 'react';
 import { Alert, Pressable, SafeAreaView, SectionList, StyleSheet, Text, View } from 'react-native';
 
 import { CATEGORY_COLORS, ExpenseCategory, formatMoney, formatTime, useExpenses } from '@/context/expense-context';
 
+// ============================================================================
+// Types
+// ============================================================================
+
+/** Section type for grouped expenses by date */
 type HistorySection = {
   title: string;
   total: number;
@@ -15,6 +37,14 @@ type HistorySection = {
   }[];
 };
 
+// ============================================================================
+// Helpers
+// ============================================================================
+
+/**
+ * Format a timestamp as a readable date
+ * Example: 1712310000000 → "Mon, Apr 5"
+ */
 function formatDay(timestamp: number) {
   return new Date(timestamp).toLocaleDateString([], {
     weekday: 'short',
@@ -23,9 +53,21 @@ function formatDay(timestamp: number) {
   });
 }
 
+// ============================================================================
+// Component
+// ============================================================================
+
 export default function HistoryScreen() {
   const { expenses, budget, deleteExpense, isLoading } = useExpenses();
 
+  // =========================================================================
+  // Computed Values
+  // =========================================================================
+
+  /**
+   * Group all expenses by date for section list rendering
+   * Expenses within each day are sorted newest first
+   */
   const sections = useMemo<HistorySection[]>(() => {
     const grouped = new Map<string, HistorySection>();
 
@@ -52,6 +94,10 @@ export default function HistoryScreen() {
     }));
   }, [expenses]);
 
+  /**
+   * Calculate total spending per category for breakdown visualization
+   * Used for both list and pie chart display
+   */
   const categoryTotals = useMemo(() => {
     const totals: Record<ExpenseCategory, number> = {
       Food: 0,

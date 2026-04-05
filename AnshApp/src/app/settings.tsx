@@ -1,12 +1,43 @@
+/**
+ * Settings Screen
+ * 
+ * Allows users to customize their daily budget and manage app data.
+ * Features include:
+ * - Edit daily budget with validation
+ * - Clear all expenses and reset app to defaults
+ * - Destructive action confirmations
+ * 
+ * UX Flow:
+ * 1. User sees current daily budget value
+ * 2. User can edit budget and tap Save
+ * 3. Confirmation alert shows new budget amount
+ * 4. User can tap Clear All Data for destructive actions
+ * 5. Confirmation dialog prevents accidental data loss
+ */
+
 import React, { useState } from 'react';
 import { Alert, Pressable, SafeAreaView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { formatMoney, useExpenses } from '@/context/expense-context';
 
+// ============================================================================
+// Component
+// ============================================================================
+
 export default function SettingsScreen() {
   const { budget, setBudget, clearAllData } = useExpenses();
+  
+  // State for budget input field
   const [budgetInput, setBudgetInput] = useState(budget.toFixed(2));
 
+  // =========================================================================
+  // Event Handlers
+  // =========================================================================
+
+  /**
+   * Validate and save new budget
+   * Shows confirmation alert with new budget amount
+   */
   function saveBudget() {
     const value = Number.parseFloat(budgetInput);
     if (!Number.isFinite(value) || value <= 0) {
@@ -19,12 +50,20 @@ export default function SettingsScreen() {
     Alert.alert('Saved', `Daily budget set to ${formatMoney(value)}.`);
   }
 
+  /**
+   * Show confirmation dialog before clearing all data
+   * User must confirm twice: once in the dialog, once in AlertActionSheetIOS
+   */
   function confirmClear() {
     Alert.alert('Clear all data?', 'This will remove all expenses and reset budget to default.', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Clear', style: 'destructive', onPress: clearAllData },
     ]);
   }
+
+  // =========================================================================
+  // Rendering
+  // =========================================================================
 
   return (
     <SafeAreaView style={styles.safeArea}>

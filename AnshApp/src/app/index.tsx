@@ -1,3 +1,21 @@
+/**
+ * Home Screen (Today Tab)
+ * 
+ * Displays today's spending status and provides quick expense entry.
+ * Features include:
+ * - Budget vs spending visualization (pie chart + color status)
+ * - Quick category-based expense entry
+ * - Inline expense editing and deletion
+ * - Real-time budget updates
+ * 
+ * UX Flow:
+ * 1. User sees today's spending and budget status at top
+ * 2. User clicks category button to add expense
+ * 3. Modal appears for amount and label input
+ * 4. Expense added and visible in Today's Expenses list
+ * 5. User can click pencil icon to edit, or swipe/long-press to delete
+ */
+
 import React, { useMemo, useState } from 'react';
 import {
   FlatList,
@@ -23,8 +41,14 @@ import {
   useExpenses,
 } from '@/context/expense-context';
 
+// ============================================================================
+// Constants
+// ============================================================================
+
+/** List of all available expense categories */
 const CATEGORIES: ExpenseCategory[] = ['Food', 'Transport', 'Groceries', 'Fun', 'Other'];
 
+/** Placeholder text suggestions for each category's label input */
 const LABEL_SUGGESTIONS: Record<ExpenseCategory, string> = {
   Food: 'e.g., Pizza, Ice Cream',
   Transport: 'e.g., Uber, Lyft',
@@ -33,6 +57,11 @@ const LABEL_SUGGESTIONS: Record<ExpenseCategory, string> = {
   Other: 'e.g., Item name',
 };
 
+// ============================================================================
+// Types
+// ============================================================================
+
+/** Type for the expense currently being edited (null when edit modal is closed) */
 type EditingExpense = {
   id: string;
   category: ExpenseCategory;
@@ -40,16 +69,31 @@ type EditingExpense = {
   label: string;
 } | null;
 
+// ============================================================================
+// Component
+// ============================================================================
+
 export default function HomeScreen() {
   const { expenses, budget, addExpense, editExpense, deleteExpense, setBudget, budgetInitialized, isLoading } = useExpenses();
+
+  // State for initial budget setup
   const [budgetSetupAmount, setBudgetSetupAmount] = useState(budget.toFixed(2));
+
+  // State for add expense modal
   const [selectedCategory, setSelectedCategory] = useState<ExpenseCategory | null>(null);
   const [amountInput, setAmountInput] = useState('');
   const [labelInput, setLabelInput] = useState('');
+
+  // State for edit expense modal
   const [editingExpense, setEditingExpense] = useState<EditingExpense>(null);
   const [editAmount, setEditAmount] = useState('');
   const [editLabel, setEditLabel] = useState('');
 
+  // =========================================================================
+  // Computed Values
+  // =========================================================================
+
+  /** Filter expenses to only today's spending (for display) */
   const todayExpenses = useMemo(() => {
     const now = new Date();
     return expenses.filter((expense) => {
@@ -62,19 +106,32 @@ export default function HomeScreen() {
     });
   }, [expenses]);
 
+  /** Calculate today's total spending */
   const todayTotal = getTodayTotal(expenses);
+
+  /** Get budget status (color, label, background) based on spending */
   const status = getBudgetStatus(todayTotal, budget);
+
+  /** Calculate percentage of budget spent for pie chart */
   const percentSpent = Math.min((todayTotal / budget) * 100, 100);
   const percentRemaining = 100 - percentSpent;
 
-  // Determine pie chart color based on percentage
-  let pieColor = '#4caf50'; // green
+  /** Determine pie chart fill color based on spending threshold */
+  let pieColor = '#4caf50'; // green (< 75%)
   if (percentSpent >= 75 && percentSpent < 100) {
-    pieColor = '#ffb74d'; // yellow
+    pieColor = '#ffb74d'; // yellow (75-99%)
   } else if (percentSpent >= 100) {
-    pieColor = '#ef5350'; // red
+    pieColor = '#ef5350'; // red (100%+)
   }
 
+  // =========================================================================
+  // Event Handlers
+  // =========================================================================
+
+  /**
+   * Handle initial budget setup on first app launch
+   * Validates input and calls setBudget from context
+   */
   function onSetupBudget() {
     const value = Number.parseFloat(budgetSetupAmount);
     if (!Number.isFinite(value) || value <= 0) {
@@ -83,6 +140,10 @@ export default function HomeScreen() {
     setBudget(value);
   }
 
+  /**
+   * Add a new expense from the modal input
+   * Validates category and amount before submitting
+   */
   function onAddExpense() {
     if (!selectedCategory) {
       return;
@@ -99,12 +160,20 @@ export default function HomeScreen() {
     setSelectedCategory(null);
   }
 
+  /**
+   * Open edit modal with current expense values
+   * Populates form fields for editing
+   */
   function onEditExpense(expense: any) {
     setEditingExpense(expense);
     setEditAmount(expense.amount.toString());
     setEditLabel(expense.label);
   }
 
+  /**
+   * Save edited expense with new values
+   * Validates amount and updates via context
+   */
   function onSaveEdit() {
     if (!editingExpense) return;
 
@@ -118,6 +187,10 @@ export default function HomeScreen() {
     setEditingExpense(null);
   }
 
+  /**
+   * Delete an expense with confirmation dialog
+   * Shows Alert asking user to confirm deletion
+   */
   function onDeleteExpense(id: string) {
     Alert.alert('Delete', 'Remove this expense?', [
       { text: 'Cancel', style: 'cancel' },
@@ -125,6 +198,11 @@ export default function HomeScreen() {
     ]);
   }
 
+  // =========================================================================
+  // Rendering
+  // =========================================================================
+
+  // Show budget setup screen if budget hasn't been initialized yet
   if (!budgetInitialized) {
     return (
       <SafeAreaView style={styles.safeArea}>

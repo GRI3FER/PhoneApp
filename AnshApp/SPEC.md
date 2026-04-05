@@ -11,36 +11,58 @@ Users can quickly log daily expenses by category, view their spending history, a
 ### Screen 1: Home Screen (Index)
 **As a user, I want to quickly add expenses so that I can track my spending throughout the day.**
 
-- Display current daily budget (e.g., "$30.00")
-- Display today's total spending (e.g., "$12.50")
-- Visual indicator showing budget status (safe, warning, over budget)
-- Category selector with 5 options: Food, Coffee, Transport, Fun, Other
-- Text input field for expense amount
+- Display current daily budget (e.g., "$30.00") and today's total spending
+- Visual budget status indicator with pie chart (shows percentage of budget used)
+- Color-coded feedback: Green (< 75%), Yellow (75-99%), Red (100%+)
+- Category selector with 5 options: Food, Transport, Groceries, Fun, Other
+- Colored dot indicators for each category (for visual distinction)
+- Text input field for expense amount with large preview display
+- Text input field for expense label with category-specific suggestions
 - "Add Expense" button
-- Display last 3-5 recent expenses with category, amount, and time
+- Display today's expenses list with inline edit and delete options (pencil icon)
+- Edit modal to update amount/label/category or delete expense
 
 **Acceptance Criteria:**
-- [ ] User can select a category from the list
+- [ ] User can select a category from the list (with colored indicators)
+- [ ] User sees category-specific label suggestions (e.g., "Pizza, Ice Cream" for Food)
 - [ ] User can enter an amount (decimal support required)
+- [ ] Amount is displayed in large preview before submission
 - [ ] Amount must be positive and valid
+- [ ] User can add optional label (e.g., specific item name)
 - [ ] Pressing "Add Expense" creates a new expense with timestamp
-- [ ] New expense appears in the recent list immediately
+- [ ] New expense appears in the Today's Expenses list immediately
 - [ ] Today's total updates in real-time
 - [ ] Budget status color changes based on spending (green/yellow/red)
+- [ ] Pie chart fill shows percentage of budget spent
+- [ ] User can click pencil icon to edit any expense
+- [ ] Edit modal allows changing amount, label, category, or deleting
+- [ ] Delete from any modal shows confirmation dialog
 
 ### Screen 2: History Screen (Explore)
-**As a user, I want to see all my past expenses organized by day so that I can review my spending patterns.**
+**As a user, I want to see all my past expenses organized by day so that I can review my spending patterns and see category breakdowns.**
 
+- Display category breakdown with color-coded list
+  - Each category shows: colored dot, name, amount, and percentage
+- Storage UI style budget bar showing used vs remaining budget
+  - Colored segments for each category proportional to spending
+  - Grey segment showing remaining budget
+- Display label showing total used (e.g., "Used: $45.20")
 - Display all expenses grouped by date (most recent first)
 - Show daily total for each date
-- Each expense shows: category, amount, and time
+- Each expense shows: category (with colored indicator), label, amount, and time
 - Tap to delete functionality with confirmation dialog
 - Empty state message when no expenses exist
 
 **Acceptance Criteria:**
+- [ ] Category breakdown appears at top of screen
+- [ ] Each category shows name, total amount, and percentage of total
+- [ ] Colored dot matches category colors from home screen
+- [ ] Budget bar displays correctly (filled by category, grey for remaining)
+- [ ] Used label shows total spending across all categories
 - [ ] Expenses are grouped by date
 - [ ] Dates are formatted readably (e.g., "Mon, Apr 5")
 - [ ] Daily totals are calculated and displayed
+- [ ] Each expense displays category with colored indicator
 - [ ] Tapping an expense shows delete confirmation
 - [ ] Confirming delete removes the expense
 - [ ] History updates when new expenses are added
@@ -69,9 +91,10 @@ Users can quickly log daily expenses by category, view their spending history, a
 ```typescript
 type Expense = {
   id: string;           // Unique identifier (timestamp + random)
-  category: ExpenseCategory;  // 'Food' | 'Coffee' | 'Transport' | 'Fun' | 'Other'
+  category: ExpenseCategory;  // 'Food' | 'Transport' | 'Fun' | 'Groceries' | 'Other'
   amount: number;       // Dollar amount (rounded to 2 decimals)
   timestamp: number;    // Milliseconds since epoch
+  label: string;        // Optional item name/description (e.g., "Pizza", "Uber")
 };
 ```
 
