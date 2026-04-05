@@ -24,7 +24,7 @@ function formatDay(timestamp: number) {
 }
 
 export default function HistoryScreen() {
-  const { expenses, deleteExpense, isLoading } = useExpenses();
+  const { expenses, budget, deleteExpense, isLoading } = useExpenses();
 
   const sections = useMemo<HistorySection[]>(() => {
     const grouped = new Map<string, HistorySection>();
@@ -109,11 +109,11 @@ export default function HistoryScreen() {
               })}
             </View>
 
-            {/* Horizontal Stacked Bar Chart */}
+            {/* Storage UI Style Bar Chart */}
             <View style={styles.pieChartContainer}>
               <View style={styles.stackedBar}>
                 {categoryTotals.map((item) => {
-                  const percentage = (item.amount / totalExpenses) * 100;
+                  const percentage = (item.amount / budget) * 100;
                   const color = CATEGORY_COLORS[item.category];
                   return (
                     <View
@@ -128,8 +128,23 @@ export default function HistoryScreen() {
                     />
                   );
                 })}
+                {/* Remaining budget as grey */}
+                <View
+                  style={[
+                    styles.stackedSegment,
+                    {
+                      backgroundColor: '#475569',
+                      flex: Math.max(0, ((budget - totalExpenses) / budget) * 100),
+                    },
+                  ]}
+                />
               </View>
-              <Text style={styles.totalExpensesLabel}>Total: {formatMoney(totalExpenses)}</Text>
+              <View style={styles.budgetLabels}>
+                <Text style={styles.budgetUsed}>Used: {formatMoney(totalExpenses)}</Text>
+                <Text style={styles.budgetRemaining}>
+                  Left: {formatMoney(Math.max(0, budget - totalExpenses))}
+                </Text>
+              </View>
             </View>
           </View>
         )}
@@ -258,6 +273,22 @@ const styles = StyleSheet.create({
   },
   stackedSegment: {
     height: '100%',
+  },
+  budgetLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 10,
+    paddingHorizontal: 4,
+  },
+  budgetUsed: {
+    color: '#cbd5e1',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  budgetRemaining: {
+    color: '#94a3b8',
+    fontSize: 13,
+    fontWeight: '600',
   },
   totalExpensesLabel: {
     color: '#cbd5e1',
