@@ -141,9 +141,6 @@ export default function HistoryScreen() {
               </View>
               <View style={styles.budgetLabels}>
                 <Text style={styles.budgetUsed}>Used: {formatMoney(totalExpenses)}</Text>
-                <Text style={styles.budgetRemaining}>
-                  Left: {formatMoney(Math.max(0, budget - totalExpenses))}
-                </Text>
               </View>
             </View>
           </View>
@@ -276,17 +273,12 @@ const styles = StyleSheet.create({
   },
   budgetLabels: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     marginTop: 10,
     paddingHorizontal: 4,
   },
   budgetUsed: {
     color: '#cbd5e1',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  budgetRemaining: {
-    color: '#94a3b8',
     fontSize: 13,
     fontWeight: '600',
   },
