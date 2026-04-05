@@ -109,39 +109,27 @@ export default function HistoryScreen() {
               })}
             </View>
 
-            {/* Simple Pie Chart */}
+            {/* Horizontal Stacked Bar Chart */}
             <View style={styles.pieChartContainer}>
-              <View style={styles.pieChart}>
-                {categoryTotals.map((item, index) => {
+              <View style={styles.stackedBar}>
+                {categoryTotals.map((item) => {
                   const percentage = (item.amount / totalExpenses) * 100;
-                  const angle = (percentage / 100) * 360;
                   const color = CATEGORY_COLORS[item.category];
                   return (
                     <View
                       key={item.category}
                       style={[
-                        styles.piePiece,
+                        styles.stackedSegment,
                         {
                           backgroundColor: color,
-                          transform: [
-                            { rotate: `${(index * 360) / categoryTotals.length}deg` },
-                          ],
-                          width: `${percentage}%`,
+                          flex: percentage,
                         },
-                      ]}>
-                      {percentage > 10 && (
-                        <Text
-                          style={[
-                            styles.pieLabel,
-                            { color: percentage > 15 ? '#000' : 'transparent' },
-                          ]}>
-                          {percentage.toFixed(0)}%
-                        </Text>
-                      )}
-                    </View>
+                      ]}
+                    />
                   );
                 })}
               </View>
+              <Text style={styles.totalExpensesLabel}>Total: {formatMoney(totalExpenses)}</Text>
             </View>
           </View>
         )}
@@ -257,6 +245,24 @@ const styles = StyleSheet.create({
   pieChartContainer: {
     alignItems: 'center',
     paddingVertical: 16,
+    gap: 12,
+  },
+  stackedBar: {
+    width: '100%',
+    height: 40,
+    borderRadius: 8,
+    overflow: 'hidden',
+    flexDirection: 'row',
+    borderWidth: 2,
+    borderColor: '#0f172a',
+  },
+  stackedSegment: {
+    height: '100%',
+  },
+  totalExpensesLabel: {
+    color: '#cbd5e1',
+    fontSize: 13,
+    fontWeight: '600',
   },
   pieChart: {
     width: 180,
