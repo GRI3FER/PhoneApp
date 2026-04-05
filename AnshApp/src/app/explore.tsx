@@ -11,6 +11,7 @@ type HistorySection = {
     category: string;
     amount: number;
     timestamp: number;
+    label: string;
   }[];
 };
 
@@ -82,7 +83,7 @@ export default function HistoryScreen() {
             renderItem={({ item }) => (
               <Pressable style={styles.rowCard} onPress={() => confirmDelete(item.id)}>
                 <View>
-                  <Text style={styles.rowTitle}>{item.category}</Text>
+                  <Text style={styles.rowTitle}>{item.category}{item.label ? ' • ' + item.label : ''}</Text>
                   <Text style={styles.rowMeta}>{formatTime(item.timestamp)}</Text>
                 </View>
                 <Text style={styles.rowAmount}>{formatMoney(item.amount)}</Text>

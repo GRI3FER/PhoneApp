@@ -8,15 +8,17 @@ export type Expense = {
   category: ExpenseCategory;
   amount: number;
   timestamp: number;
+  label: string;
 };
 
 type ExpenseContextValue = {
   expenses: Expense[];
   budget: number;
   isLoading: boolean;
-  addExpense: (category: ExpenseCategory, amount: number) => void;
+  budgetInitialized: boolean;
+  addExpense: (category: ExpenseCategory, amount: number, label: string) => void;
   deleteExpense: (id: string) => void;
-  editExpense: (id: string, category: ExpenseCategory, amount: number) => void;
+  editExpense: (id: string, category: ExpenseCategory, amount: number, label: string) => void;
   setBudget: (value: number) => void;
   clearAllData: () => void;
 };
@@ -24,6 +26,7 @@ type ExpenseContextValue = {
 type StoredData = {
   expenses: Expense[];
   budget: number;
+  budgetInitialized: boolean;
 };
 
 const STORAGE_KEY = 'broke_or_not_data_v1';
@@ -49,18 +52,20 @@ function sanitizeExpense(raw: Partial<Expense>): Expense | null {
   if (typeof raw.timestamp !== 'number' || !Number.isFinite(raw.timestamp)) {
     return null;
   }
+  const label = typeof raw.label === 'string' ? raw.label.trim() : '';
 
   return {
     id: raw.id,
     category: raw.category,
     amount: Math.round(raw.amount * 100) / 100,
     timestamp: raw.timestamp,
+    label,
   };
 }
 
 function sanitizeStoredData(raw: unknown): StoredData {
   if (typeof raw !== 'object' || raw === null) {
-    return { expenses: [], budget: DEFAULT_BUDGET };
+    return { expenses: [], budget: DEFAULT_BUDGET, budgetInitialized: false };
   }
 
   const data = raw as Partial<StoredData>;
@@ -77,12 +82,15 @@ function sanitizeStoredData(raw: unknown): StoredData {
       ? Math.round(data.budget * 100) / 100
       : DEFAULT_BUDGET;
 
-  return { expenses, budget };
+  const budgetInitialized = typeof data.budgetInitialized === 'boolean' ? data.budgetInitialized : false;
+
+  return { expenses, budget, budgetInitialized };
 }
 
 export function ExpenseProvider({ children }: { children: React.ReactNode }) {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [budget, setBudgetState] = useState(DEFAULT_BUDGET);
+  const [budgetInitialized, setBudgetInitialized] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -94,10 +102,12 @@ export function ExpenseProvider({ children }: { children: React.ReactNode }) {
           const sanitized = sanitizeStoredData(parsed);
           setExpenses(sanitized.expenses);
           setBudgetState(sanitized.budget);
+          setBudgetInitialized(sanitized.budgetInitialized);
         }
       } catch {
         setExpenses([]);
         setBudgetState(DEFAULT_BUDGET);
+        setBudgetInitialized(false);
       } finally {
         setIsLoading(false);
       }
@@ -114,19 +124,21 @@ export function ExpenseProvider({ children }: { children: React.ReactNode }) {
     const payload: StoredData = {
       expenses,
       budget,
+      budgetInitialized,
     };
 
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(payload)).catch(() => {
       // Ignore write errors so the UI stays responsive.
     });
-  }, [expenses, budget, isLoading]);
+  }, [expenses, budget, budgetInitialized, isLoading]);
 
   const value = useMemo<ExpenseContextValue>(
     () => ({
       expenses,
       budget,
       isLoading,
-      addExpense: (category, amount) => {
+      budgetInitialized,
+      addExpense: (category, amount, label = '') => {
         if (!Number.isFinite(amount) || amount <= 0) {
           return;
         }
@@ -136,6 +148,7 @@ export function ExpenseProvider({ children }: { children: React.ReactNode }) {
           category,
           amount: Math.round(amount * 100) / 100,
           timestamp: Date.now(),
+          label: label.trim(),
         };
 
         setExpenses((current) => [next, ...current].slice(0, MAX_EXPENSES));
@@ -143,14 +156,14 @@ export function ExpenseProvider({ children }: { children: React.ReactNode }) {
       deleteExpense: (id) => {
         setExpenses((current) => current.filter((item) => item.id !== id));
       },
-      editExpense: (id, category, amount) => {
+      editExpense: (id, category, amount, label = '') => {
         if (!Number.isFinite(amount) || amount <= 0) {
           return;
         }
         setExpenses((current) =>
           current.map((item) =>
             item.id === id
-              ? { ...item, category, amount: Math.round(amount * 100) / 100 }
+              ? { ...item, category, amount: Math.round(amount * 100) / 100, label: label.trim() }
               : item
           )
         );
@@ -160,13 +173,15 @@ export function ExpenseProvider({ children }: { children: React.ReactNode }) {
           return;
         }
         setBudgetState(Math.round(value * 100) / 100);
+        setBudgetInitialized(true);
       },
       clearAllData: () => {
         setExpenses([]);
         setBudgetState(DEFAULT_BUDGET);
+        setBudgetInitialized(false);
       },
     }),
-    [expenses, budget, isLoading],
+    [expenses, budget, budgetInitialized, isLoading],
   );
 
   return <ExpenseContext.Provider value={value}>{children}</ExpenseContext.Provider>;

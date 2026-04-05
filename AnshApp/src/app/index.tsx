@@ -22,9 +22,11 @@ import {
 const CATEGORIES: ExpenseCategory[] = ['Food', 'Coffee', 'Transport', 'Fun', 'Other'];
 
 export default function HomeScreen() {
-  const { expenses, budget, addExpense, isLoading } = useExpenses();
+  const { expenses, budget, addExpense, setBudget, budgetInitialized, isLoading } = useExpenses();
+  const [budgetSetupAmount, setBudgetSetupAmount] = useState(budget.toFixed(2));
   const [selectedCategory, setSelectedCategory] = useState<ExpenseCategory | null>(null);
   const [amountInput, setAmountInput] = useState('');
+  const [labelInput, setLabelInput] = useState('');
 
   const todayExpenses = useMemo(() => {
     const now = new Date();
@@ -41,6 +43,14 @@ export default function HomeScreen() {
   const todayTotal = getTodayTotal(expenses);
   const status = getBudgetStatus(todayTotal, budget);
 
+  function onSetupBudget() {
+    const value = Number.parseFloat(budgetSetupAmount);
+    if (!Number.isFinite(value) || value <= 0) {
+      return;
+    }
+    setBudget(value);
+  }
+
   function onAddExpense() {
     if (!selectedCategory) {
       return;
@@ -51,9 +61,37 @@ export default function HomeScreen() {
       return;
     }
 
-    addExpense(selectedCategory, amount);
+    addExpense(selectedCategory, amount, labelInput);
     setAmountInput('');
+    setLabelInput('');
     setSelectedCategory(null);
+  }
+
+  if (!budgetInitialized) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.container}>
+          <Text style={styles.header}>Welcome!</Text>
+          <Text style={styles.subHeader}>Let&apos;s set up your daily budget</Text>
+
+          <View style={styles.setupCard}>
+            <Text style={styles.setupLabel}>Daily Budget</Text>
+            <Text style={styles.setupHint}>How much can you spend today?</Text>
+            <TextInput
+              value={budgetSetupAmount}
+              onChangeText={setBudgetSetupAmount}
+              keyboardType="decimal-pad"
+              placeholder="30.00"
+              placeholderTextColor="#9ca3af"
+              style={styles.setupInput}
+            />
+            <Pressable style={styles.primaryButton} onPress={onSetupBudget}>
+              <Text style={styles.primaryButtonText}>Set Budget</Text>
+            </Pressable>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
   }
 
   return (
@@ -89,8 +127,8 @@ export default function HomeScreen() {
             ListEmptyComponent={<Text style={styles.mutedText}>No expenses yet today.</Text>}
             renderItem={({ item }) => (
               <View style={styles.rowCard}>
-                <View>
-                  <Text style={styles.rowTitle}>{item.category}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.rowTitle}>{item.category}{item.label ? ' • ' + item.label : ''}</Text>
                   <Text style={styles.rowMeta}>{formatTime(item.timestamp)}</Text>
                 </View>
                 <Text style={styles.rowAmount}>{formatMoney(item.amount)}</Text>
@@ -103,6 +141,13 @@ export default function HomeScreen() {
           <View style={styles.modalOverlay}>
             <View style={styles.modalCard}>
               <Text style={styles.modalTitle}>Add {selectedCategory}</Text>
+              <TextInput
+                value={labelInput}
+                onChangeText={setLabelInput}
+                placeholder="e.g., Pizza, Uber, Movie"
+                placeholderTextColor="#9ca3af"
+                style={styles.input}
+              />
               <TextInput
                 value={amountInput}
                 onChangeText={setAmountInput}
@@ -117,6 +162,7 @@ export default function HomeScreen() {
                   onPress={() => {
                     setSelectedCategory(null);
                     setAmountInput('');
+                    setLabelInput('');
                   }}>
                   <Text style={styles.cancelButtonText}>Cancel</Text>
                 </Pressable>
@@ -270,5 +316,45 @@ const styles = StyleSheet.create({
   addButtonText: {
     color: '#f0fdf4',
     fontWeight: '700',
+  },
+  setupCard: {
+    backgroundColor: '#111827',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#1f2937',
+    padding: 20,
+    gap: 12,
+  },
+  setupLabel: {
+    color: '#f8fafc',
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  setupHint: {
+    color: '#cbd5e1',
+    fontSize: 14,
+  },
+  setupInput: {
+    backgroundColor: '#0b1220',
+    color: '#f8fafc',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#334155',
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  primaryButton: {
+    backgroundColor: '#1d4ed8',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  primaryButtonText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 16,
   },
 });
