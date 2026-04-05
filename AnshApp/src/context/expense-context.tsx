@@ -63,6 +63,10 @@ const DEFAULT_BUDGET = 30;
 /** Maximum number of expenses to store (prevents excessive data) */
 const MAX_EXPENSES = 500;
 
+/** Budget status thresholds - ratio of spending to budget */
+const BUDGET_THRESHOLD_YELLOW = 0.75; // 75% - "Getting close"
+const BUDGET_THRESHOLD_RED = 1.0;    // 100% - "Over budget"
+
 // ============================================================================
 // Context & Validation
 // ============================================================================
@@ -343,10 +347,10 @@ export function formatTime(timestamp: number) {
  */
 export function getBudgetStatus(total: number, budget: number) {
   const ratio = budget > 0 ? total / budget : 0;
-  if (ratio < 0.75) {
+  if (ratio < BUDGET_THRESHOLD_YELLOW) {
     return { label: "You're good", color: '#4caf50', backgroundColor: '#0a1f0a' };
   }
-  if (ratio < 1) {
+  if (ratio < BUDGET_THRESHOLD_RED) {
     return { label: 'Getting close', color: '#ffb74d', backgroundColor: '#2c1f0a' };
   }
   return { label: 'Over budget', color: '#ef5350', backgroundColor: '#2c0a0a' };
@@ -559,10 +563,10 @@ export function formatTime(timestamp: number) {
 
 export function getBudgetStatus(total: number, budget: number) {
   const ratio = budget > 0 ? total / budget : 0;
-  if (ratio < 0.75) {
+  if (ratio < BUDGET_THRESHOLD_YELLOW) {
     return { label: "You're good", color: '#4caf50', backgroundColor: '#0a1f0a' };
   }
-  if (ratio < 1) {
+  if (ratio < BUDGET_THRESHOLD_RED) {
     return { label: 'Getting close', color: '#ffb74d', backgroundColor: '#2c1f0a' };
   }
   return { label: 'Over budget', color: '#ef5350', backgroundColor: '#2c0a0a' };

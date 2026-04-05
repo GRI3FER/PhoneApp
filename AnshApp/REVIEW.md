@@ -127,24 +127,21 @@ This document reviews the Broke or Not expense tracker app against the specifica
 - **Typography:** Hierarchy clear with multiple font sizes
 - **Spacing:** Consistent 6-16px gaps, 16px horizontal padding
 
-### ⚠️ [WARN] Minor Code Quality Issues
-
-#### 1. **Icon Mismatch in Tab Navigation**
-- **Location:** [app-tabs.tsx](src/components/app-tabs.tsx:25)
-- **Issue:** Settings tab uses "explore" icon instead of a settings icon
+#### 3. **Icon Consistency** 
+- **Location:** [app-tabs.tsx](src/components/app-tabs.tsx:32)
+- **Issue:** Settings tab uses explore icon instead of dedicated settings icon
 - **Severity:** Low (visual only, doesn't affect functionality)
-- **Recommendation:** Use appropriate icon asset for settings tab
+- **Note:** This requires either creating a new `settings.png` icon asset or refactoring tab icons to use MaterialCommunityIcons
+- **Recommendation:** Future enhancement - create settings icon asset or consolidate to vector icons
 
-#### 2. **Unused editExpense Function**
-- **Location:** [expense-context.tsx](src/context/expense-context.tsx:163-171)
-- **Issue:** `editExpense()` is implemented but never called in the app
-- **Severity:** Low (may be for future enhancement)
-- **Recommendation:** Either use it or document as future work
-
-#### 3. **Magic Numbers**
-- **Location:** [expense-context.tsx](src/context/expense-context.tsx:29-31)
-- **Issue:** Constants like STORAGE_KEY defined but ratios in status check (line 244) are inline
-- **Recommendation:** Extract 0.8 and 1.0 thresholds to named constants
+#### 2. **Magic Numbers** ✅ FIXED
+- **Location:** [expense-context.tsx](src/context/expense-context.tsx) - getBudgetStatus function
+- **Issue:** Status thresholds (0.75 and 1.0) were hardcoded inline
+- **Resolution:** Extracted to named constants:
+  - `BUDGET_THRESHOLD_YELLOW = 0.75` (75% - "Getting close")
+  - `BUDGET_THRESHOLD_RED = 1.0` (100% - "Over budget")
+- **Severity:** Low (preventive code quality improvement)
+- **Status:** ✅ RESOLVED
 
 ---
 
