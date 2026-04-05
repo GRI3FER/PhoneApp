@@ -371,35 +371,6 @@ export const CATEGORY_COLORS: Record<ExpenseCategory, string> = {
   Fun: '#FFE66D',
   Other: '#95A5A6',
 };
-          )
-        );
-      },
-      setBudget: (value) => {
-        if (!Number.isFinite(value) || value <= 0) {
-          return;
-        }
-        setBudgetState(Math.round(value * 100) / 100);
-        setBudgetInitialized(true);
-      },
-      clearAllData: () => {
-        setExpenses([]);
-        setBudgetState(DEFAULT_BUDGET);
-        setBudgetInitialized(false);
-      },
-    }),
-    [expenses, budget, budgetInitialized, isLoading],
-  );
-
-  return <ExpenseContext.Provider value={value}>{children}</ExpenseContext.Provider>;
-}
-
-export function useExpenses() {
-  const context = useContext(ExpenseContext);
-  if (!context) {
-    throw new Error('useExpenses must be used inside ExpenseProvider');
-  }
-  return context;
-}
 
 export function getTodayTotal(expenses: Expense[]) {
   const today = new Date();
