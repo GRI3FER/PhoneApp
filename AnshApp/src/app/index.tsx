@@ -16,30 +16,35 @@
  * 5. User can click pencil icon to edit, or swipe/long-press to delete
  */
 
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   FlatList,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
-  View,
   TouchableOpacity,
+  View,
   Alert,
 } from 'react-native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 
 import {
+  Expense,
   ExpenseCategory,
   CATEGORY_COLORS,
+  getExpensesForDay,
   formatMoney,
   formatTime,
   getBudgetStatus,
-  getTodayTotal,
   useExpenses,
 } from '@/context/expense-context';
+
+import { toLocalDayKey } from '@/utils/date';
 
 // ============================================================================
 // Constants
@@ -62,12 +67,37 @@ const LABEL_SUGGESTIONS: Record<ExpenseCategory, string> = {
 // ============================================================================
 
 /** Type for the expense currently being edited (null when edit modal is closed) */
-type EditingExpense = {
-  id: string;
-  category: ExpenseCategory;
-  amount: number;
-  label: string;
-} | null;
+type EditingExpense = Expense | null;
+
+// ============================================================================
+// Input Helpers
+// ============================================================================
+
+function sanitizeDecimalInput(text: string) {
+  // Keep only digits and a single decimal point.
+  // Also normalize commas (some keyboards) to dots.
+  const normalized = text.replace(/,/g, '.');
+  let out = '';
+  let hasDot = false;
+
+  for (const ch of normalized) {
+    if (ch >= '0' && ch <= '9') {
+      out += ch;
+      continue;
+    }
+    if (ch === '.' && !hasDot) {
+      out += ch;
+      hasDot = true;
+    }
+  }
+
+  // If user starts with '.', help them by prefixing 0
+  if (out.startsWith('.')) {
+    out = `0${out}`;
+  }
+
+  return out;
+}
 
 // ============================================================================
 // Component
@@ -93,36 +123,32 @@ export default function HomeScreen() {
   // Computed Values
   // =========================================================================
 
+  const nowTimestamp = Date.now();
+  const todayKey = toLocalDayKey(nowTimestamp);
+
   /** Filter expenses to only today's spending (for display) */
   const todayExpenses = useMemo(() => {
-    const now = new Date();
-    return expenses.filter((expense) => {
-      const date = new Date(expense.timestamp);
-      return (
-        date.getFullYear() === now.getFullYear() &&
-        date.getMonth() === now.getMonth() &&
-        date.getDate() === now.getDate()
-      );
-    });
-  }, [expenses]);
+    return getExpensesForDay(expenses, nowTimestamp);
+  }, [expenses, todayKey]);
 
   /** Calculate today's total spending */
-  const todayTotal = getTodayTotal(expenses);
+  const todayTotal = useMemo(() => todayExpenses.reduce((sum, item) => sum + item.amount, 0), [todayExpenses]);
 
   /** Get budget status (color, label, background) based on spending */
   const status = getBudgetStatus(todayTotal, budget);
 
-  /** Calculate percentage of budget spent for pie chart */
-  const percentSpent = Math.min((todayTotal / budget) * 100, 100);
-  const percentRemaining = 100 - percentSpent;
-
-  /** Determine pie chart fill color based on spending threshold */
-  let pieColor = '#4caf50'; // green (< 75%)
-  if (percentSpent >= 75 && percentSpent < 100) {
-    pieColor = '#ffb74d'; // yellow (75-99%)
-  } else if (percentSpent >= 100) {
-    pieColor = '#ef5350'; // red (100%+)
-  }
+  /** Calculate percentage and color for pie chart (memoized) */
+  const { percentSpent, pieColor } = useMemo(() => {
+    const ratio = budget > 0 ? todayTotal / budget : 0;
+    const spent = Math.min(ratio * 100, 100);
+    let color = '#4caf50'; // green (< 75%)
+    if (spent >= 75 && spent < 100) {
+      color = '#ffb74d'; // yellow (75-99%)
+    } else if (spent >= 100) {
+      color = '#ef5350'; // red (100%+)
+    }
+    return { percentSpent: spent, pieColor: color };
+  }, [todayTotal, budget]);
 
   // =========================================================================
   // Event Handlers
@@ -138,6 +164,7 @@ export default function HomeScreen() {
       return;
     }
     setBudget(value);
+    setBudgetSetupAmount(value.toFixed(2));
   }
 
   /**
@@ -164,7 +191,7 @@ export default function HomeScreen() {
    * Open edit modal with current expense values
    * Populates form fields for editing
    */
-  function onEditExpense(expense: any) {
+  function onEditExpense(expense: Expense) {
     setEditingExpense(expense);
     setEditAmount(expense.amount.toString());
     setEditLabel(expense.label);
@@ -205,217 +232,335 @@ export default function HomeScreen() {
   // Show budget setup screen if budget hasn't been initialized yet
   if (!budgetInitialized) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.container}>
-          <Text style={styles.header}>Welcome!</Text>
-          <Text style={styles.subHeader}>Let&apos;s set up your daily budget</Text>
-
-          <View style={styles.setupCard}>
-            <Text style={styles.setupLabel}>Daily Budget</Text>
-            <Text style={styles.setupHint}>How much can you spend today?</Text>
-            <TextInput
-              value={budgetSetupAmount}
-              onChangeText={setBudgetSetupAmount}
-              keyboardType="decimal-pad"
-              placeholder="30.00"
-              placeholderTextColor="#9ca3af"
-              style={styles.setupInput}
-            />
-            <Pressable style={styles.primaryButton} onPress={onSetupBudget}>
-              <Text style={styles.primaryButtonText}>Set Budget</Text>
-            </Pressable>
-          </View>
-        </View>
-      </SafeAreaView>
+      <BudgetSetupScreen
+        budgetSetupAmount={budgetSetupAmount}
+        setBudgetSetupAmount={setBudgetSetupAmount}
+        onSetupBudget={onSetupBudget}
+      />
     );
   }
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: status.backgroundColor }]}>
       <View style={styles.container}>
-        <Text style={styles.header}>Broke or Not?</Text>
-        <Text style={styles.subHeader}>Today: {formatMoney(todayTotal)} / {formatMoney(budget)}</Text>
+        <StatusSection
+          todayTotal={todayTotal}
+          budget={budget}
+          percentSpent={percentSpent}
+          pieColor={pieColor}
+          statusLabel={status.label}
+        />
 
-        {/* Pie Chart */}
-        <View style={styles.pieChartContainer}>
-          <View style={styles.pieChart}>
-            {/* Filled portion */}
-            <View
-              style={[
-                styles.pieFilled,
-                {
-                  backgroundColor: pieColor,
-                  width: percentSpent > 50 ? '100%' : `${percentSpent * 2}%`,
-                  height: percentSpent > 50 ? '100%' : `${percentSpent * 2}%`,
-                },
-              ]}
-            />
-            {/* Inner circle (hole in center) */}
-            <View style={styles.pieInner}>
-              <Text style={styles.pieText}>{Math.round(percentSpent)}%</Text>
-            </View>
-          </View>
-          <Text style={[styles.statusTextLabel, { color: pieColor, marginTop: 12 }]}>
-            {status.label}
-          </Text>
-        </View>
+        <AddExpenseSection onSelectCategory={setSelectedCategory} />
 
-        <Text style={styles.sectionLabel}>ADD EXPENSE</Text>
-        <View style={styles.categoryWrap}>
-          {CATEGORIES.map((category) => (
-            <Pressable
-              key={category}
-              style={[styles.categoryButton, { borderLeftColor: CATEGORY_COLORS[category], borderLeftWidth: 4 }]}
-              onPress={() => setSelectedCategory(category)}>
-              <View style={styles.categoryButtonContent}>
-                <View
-                  style={[
-                    styles.categoryButtonDot,
-                    { backgroundColor: CATEGORY_COLORS[category] },
-                  ]}
-                />
-                <Text style={styles.categoryButtonText}>{category}</Text>
-              </View>
-            </Pressable>
-          ))}
-        </View>
+        <TodayExpensesSection
+          isLoading={isLoading}
+          todayExpenses={todayExpenses}
+          onEditExpense={onEditExpense}
+        />
 
-        <Text style={styles.sectionLabel}>TODAY'S EXPENSES</Text>
-        {isLoading ? (
-          <Text style={styles.mutedText}>Loading...</Text>
-        ) : (
-          <FlatList
-            data={todayExpenses}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={todayExpenses.length === 0 ? styles.emptyList : undefined}
-            ListEmptyComponent={<Text style={styles.mutedText}>No expenses yet today.</Text>}
-            renderItem={({ item }) => (
-              <View style={styles.rowCard}>
-                <View style={[styles.categoryIcon, { backgroundColor: CATEGORY_COLORS[item.category] }]} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.rowTitle}>{item.category}{item.label ? ' • ' + item.label : ''}</Text>
-                  <Text style={styles.rowMeta}>{formatTime(item.timestamp)}</Text>
-                </View>
-                <Text style={styles.rowAmount}>{formatMoney(item.amount)}</Text>
-                <TouchableOpacity style={styles.editButton} onPress={() => onEditExpense(item)}>
-                  <MaterialCommunityIcons name="pencil" size={18} color="#1d4ed8" />
-                </TouchableOpacity>
-              </View>
-            )}
-          />
-        )}
+        <AddExpenseModal
+          selectedCategory={selectedCategory}
+          amountInput={amountInput}
+          labelInput={labelInput}
+          setAmountInput={setAmountInput}
+          setLabelInput={setLabelInput}
+          onCancel={() => {
+            setSelectedCategory(null);
+            setAmountInput('');
+            setLabelInput('');
+          }}
+          onAddExpense={onAddExpense}
+        />
 
-        <Modal visible={selectedCategory !== null} transparent animationType="fade">
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalCard}>
-              {selectedCategory && (
-                <>
-                  <View style={styles.modalHeader}>
-                    <View
-                      style={[
-                        styles.categoryHeaderDot,
-                        { backgroundColor: CATEGORY_COLORS[selectedCategory] },
-                      ]}
-                    />
-                    <Text style={styles.modalTitle}>Add {selectedCategory}</Text>
-                  </View>
-
-                  <TextInput
-                    value={labelInput}
-                    onChangeText={setLabelInput}
-                    placeholder={LABEL_SUGGESTIONS[selectedCategory]}
-                    placeholderTextColor="#9ca3af"
-                    style={styles.input}
-                  />
-
-                  {/* Large Amount Display Button */}
-                  <View style={styles.amountDisplayContainer}>
-                    <Text style={styles.amountDisplayLabel}>Amount</Text>
-                    <Pressable style={styles.amountDisplayButton}>
-                      <Text style={styles.amountDisplay}>
-                        ${amountInput || '0.00'}
-                      </Text>
-                    </Pressable>
-                  </View>
-
-                  <TextInput
-                    value={amountInput}
-                    onChangeText={setAmountInput}
-                    keyboardType="decimal-pad"
-                    placeholder="0.00"
-                    placeholderTextColor="#9ca3af"
-                    style={styles.input}
-                  />
-
-                  <View style={styles.modalActions}>
-                    <Pressable
-                      style={[styles.modalButton, styles.cancelButton]}
-                      onPress={() => {
-                        setSelectedCategory(null);
-                        setAmountInput('');
-                        setLabelInput('');
-                      }}>
-                      <Text style={styles.cancelButtonText}>Cancel</Text>
-                    </Pressable>
-                    <Pressable style={[styles.modalButton, styles.addButton]} onPress={onAddExpense}>
-                      <Text style={styles.addButtonText}>Add Expense</Text>
-                    </Pressable>
-                  </View>
-                </>
-              )}
-            </View>
-          </View>
-        </Modal>
-
-        {/* Edit Modal */}
-        <Modal visible={editingExpense !== null} transparent animationType="fade">
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>Edit {editingExpense?.category}</Text>
-              <TextInput
-                value={editLabel}
-                onChangeText={setEditLabel}
-                placeholder="Label"
-                placeholderTextColor="#9ca3af"
-                style={styles.input}
-              />
-              <TextInput
-                value={editAmount}
-                onChangeText={setEditAmount}
-                keyboardType="decimal-pad"
-                placeholder="Amount"
-                placeholderTextColor="#9ca3af"
-                style={styles.input}
-              />
-              <View style={styles.modalActions}>
-                <Pressable
-                  style={[styles.modalButton, styles.deleteButton]}
-                  onPress={() => {
-                    if (editingExpense) {
-                      onDeleteExpense(editingExpense.id);
-                      setEditingExpense(null);
-                    }
-                  }}>
-                  <Text style={styles.deleteButtonText}>Delete</Text>
-                </Pressable>
-                <Pressable
-                  style={[styles.modalButton, styles.cancelButton]}
-                  onPress={() => setEditingExpense(null)}>
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
-                </Pressable>
-                <Pressable style={[styles.modalButton, styles.addButton]} onPress={onSaveEdit}>
-                  <Text style={styles.addButtonText}>Save</Text>
-                </Pressable>
-              </View>
-            </View>
-          </View>
-        </Modal>
+        <EditExpenseModal
+          editingExpense={editingExpense}
+          editAmount={editAmount}
+          setEditAmount={setEditAmount}
+          editLabel={editLabel}
+          setEditLabel={setEditLabel}
+          onCancel={() => setEditingExpense(null)}
+          onDelete={() => {
+            if (editingExpense) {
+              onDeleteExpense(editingExpense.id);
+              setEditingExpense(null);
+            }
+          }}
+          onSave={onSaveEdit}
+        />
       </View>
     </SafeAreaView>
   );
 }
 
+function BudgetSetupScreen({
+  budgetSetupAmount,
+  setBudgetSetupAmount,
+  onSetupBudget,
+}: {
+  budgetSetupAmount: string;
+  setBudgetSetupAmount: (value: string) => void;
+  onSetupBudget: () => void;
+}) {
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        <Text style={styles.header}>Welcome!</Text>
+        <Text style={styles.subHeader}>Let&apos;s set up your daily budget</Text>
+
+        <View style={styles.setupCard}>
+          <Text style={styles.setupLabel}>Daily Budget</Text>
+          <Text style={styles.setupHint}>How much can you spend today?</Text>
+          <TextInput
+            value={budgetSetupAmount}
+            onChangeText={(text) => setBudgetSetupAmount(sanitizeDecimalInput(text))}
+            keyboardType="decimal-pad"
+            placeholder="30.00"
+            placeholderTextColor="#9ca3af"
+            style={styles.setupInput}
+          />
+          <Pressable style={styles.primaryButton} onPress={onSetupBudget}>
+            <Text style={styles.primaryButtonText}>Set Budget</Text>
+          </Pressable>
+        </View>
+      </View>
+    </SafeAreaView>
+  );
+}
+
+function StatusSection({
+  todayTotal,
+  budget,
+  percentSpent,
+  pieColor,
+  statusLabel,
+}: {
+  todayTotal: number;
+  budget: number;
+  percentSpent: number;
+  pieColor: string;
+  statusLabel: string;
+}) {
+  return (
+    <>
+      <Text style={styles.header}>Broke or Not?</Text>
+      <Text style={styles.subHeader}>Today: {formatMoney(todayTotal)} / {formatMoney(budget)}</Text>
+
+      <View style={styles.pieChartContainer}>
+        <View style={styles.pieChart}>
+          <View
+            style={[
+              styles.pieFilled,
+              {
+                backgroundColor: pieColor,
+                width: percentSpent > 50 ? '100%' : `${percentSpent * 2}%`,
+                height: percentSpent > 50 ? '100%' : `${percentSpent * 2}%`,
+              },
+            ]}
+          />
+          <View style={styles.pieInner}>
+            <Text style={styles.pieText}>{Math.round(percentSpent)}%</Text>
+          </View>
+        </View>
+        <Text style={[styles.statusTextLabel, { color: pieColor, marginTop: 12 }]}>
+          {statusLabel}
+        </Text>
+      </View>
+    </>
+  );
+}
+
+function AddExpenseSection({ onSelectCategory }: { onSelectCategory: (category: ExpenseCategory) => void }) {
+  return (
+    <>
+      <Text style={styles.sectionLabel}>ADD EXPENSE</Text>
+      <View style={styles.categoryWrap}>
+        {CATEGORIES.map((category) => (
+          <Pressable
+            key={category}
+            style={[styles.categoryButton, { borderLeftColor: CATEGORY_COLORS[category], borderLeftWidth: 4 }]}
+            onPress={() => onSelectCategory(category)}>
+            <View style={styles.categoryButtonContent}>
+              <View style={[styles.categoryButtonDot, { backgroundColor: CATEGORY_COLORS[category] }]} />
+              <Text style={styles.categoryButtonText}>{category}</Text>
+            </View>
+          </Pressable>
+        ))}
+      </View>
+    </>
+  );
+}
+
+function TodayExpensesSection({
+  isLoading,
+  todayExpenses,
+  onEditExpense,
+}: {
+  isLoading: boolean;
+  todayExpenses: Expense[];
+  onEditExpense: (expense: Expense) => void;
+}) {
+  return (
+    <>
+      <Text style={styles.sectionLabel}>TODAY'S EXPENSES</Text>
+      {isLoading ? (
+        <Text style={styles.mutedText}>Loading...</Text>
+      ) : (
+        <FlatList
+          data={todayExpenses}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={todayExpenses.length === 0 ? styles.emptyList : undefined}
+          ListEmptyComponent={<Text style={styles.mutedText}>No expenses yet today.</Text>}
+          renderItem={({ item }) => (
+            <View style={styles.rowCard}>
+              <View style={[styles.categoryIcon, { backgroundColor: CATEGORY_COLORS[item.category] }]} />
+              <View style={styles.flex1}>
+                <Text style={styles.rowTitle}>
+                  {item.category}
+                  {item.label ? ' • ' + item.label : ''}
+                </Text>
+                <Text style={styles.rowMeta}>{formatTime(item.timestamp)}</Text>
+              </View>
+              <Text style={styles.rowAmount}>{formatMoney(item.amount)}</Text>
+              <TouchableOpacity style={styles.editButton} onPress={() => onEditExpense(item)}>
+                <MaterialCommunityIcons name="pencil" size={18} color="#1d4ed8" />
+              </TouchableOpacity>
+            </View>
+          )}
+        />
+      )}
+    </>
+  );
+}
+
+function AddExpenseModal({
+  selectedCategory,
+  amountInput,
+  labelInput,
+  setAmountInput,
+  setLabelInput,
+  onCancel,
+  onAddExpense,
+}: {
+  selectedCategory: ExpenseCategory | null;
+  amountInput: string;
+  labelInput: string;
+  setAmountInput: (value: string) => void;
+  setLabelInput: (value: string) => void;
+  onCancel: () => void;
+  onAddExpense: () => void;
+}) {
+  return (
+    <Modal visible={selectedCategory !== null} transparent animationType="fade">
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
+        <View style={styles.modalCard}>
+          {selectedCategory && (
+            <>
+              <View style={styles.modalHeader}>
+                <View style={[styles.categoryHeaderDot, { backgroundColor: CATEGORY_COLORS[selectedCategory] }]} />
+                <Text style={styles.modalTitle}>Add {selectedCategory}</Text>
+              </View>
+
+              <TextInput
+                value={labelInput}
+                onChangeText={setLabelInput}
+                placeholder={LABEL_SUGGESTIONS[selectedCategory]}
+                placeholderTextColor="#9ca3af"
+                style={styles.input}
+              />
+
+              <View style={styles.amountDisplayContainer}>
+                <Text style={styles.amountDisplayLabel}>Amount</Text>
+                <Pressable style={styles.amountDisplayButton}>
+                  <Text style={styles.amountDisplay}>${amountInput || '0.00'}</Text>
+                </Pressable>
+              </View>
+
+              <TextInput
+                value={amountInput}
+                onChangeText={(text) => setAmountInput(sanitizeDecimalInput(text))}
+                keyboardType="decimal-pad"
+                placeholder="0.00"
+                placeholderTextColor="#9ca3af"
+                style={styles.input}
+              />
+
+              <View style={styles.modalActions}>
+                <Pressable style={[styles.modalButton, styles.cancelButton]} onPress={onCancel}>
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </Pressable>
+                <Pressable style={[styles.modalButton, styles.addButton]} onPress={onAddExpense}>
+                  <Text style={styles.addButtonText}>Add Expense</Text>
+                </Pressable>
+              </View>
+            </>
+          )}
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+function EditExpenseModal({
+  editingExpense,
+  editAmount,
+  setEditAmount,
+  editLabel,
+  setEditLabel,
+  onCancel,
+  onDelete,
+  onSave,
+}: {
+  editingExpense: EditingExpense;
+  editAmount: string;
+  setEditAmount: (value: string) => void;
+  editLabel: string;
+  setEditLabel: (value: string) => void;
+  onCancel: () => void;
+  onDelete: () => void;
+  onSave: () => void;
+}) {
+  return (
+    <Modal visible={editingExpense !== null} transparent animationType="fade">
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
+        <View style={styles.modalCard}>
+          <Text style={styles.modalTitle}>Edit {editingExpense?.category}</Text>
+          <TextInput
+            value={editLabel}
+            onChangeText={setEditLabel}
+            placeholder="Label"
+            placeholderTextColor="#9ca3af"
+            style={styles.input}
+          />
+          <TextInput
+            value={editAmount}
+            onChangeText={(text) => setEditAmount(sanitizeDecimalInput(text))}
+            keyboardType="decimal-pad"
+            placeholder="Amount"
+            placeholderTextColor="#9ca3af"
+            style={styles.input}
+          />
+          <View style={styles.modalActions}>
+            <Pressable style={[styles.modalButton, styles.deleteButton]} onPress={onDelete}>
+              <Text style={styles.deleteButtonText}>Delete</Text>
+            </Pressable>
+            <Pressable style={[styles.modalButton, styles.cancelButton]} onPress={onCancel}>
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </Pressable>
+            <Pressable style={[styles.modalButton, styles.addButton]} onPress={onSave}>
+              <Text style={styles.addButtonText}>Save</Text>
+            </Pressable>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
 const styles = StyleSheet.create({
+  flex1: {
+    flex: 1,
+  },
   safeArea: {
     flex: 1,
     backgroundColor: '#0a0e27',
@@ -437,17 +582,7 @@ const styles = StyleSheet.create({
     color: '#a0aec0',
     fontSize: 13,
   },
-  statusCard: {
-    backgroundColor: '#1f2937',
-    borderRadius: 12,
-    paddingVertical: 20,
-    alignItems: 'center',
-    borderWidth: 0,
-  },
-  statusText: {
-    fontSize: 28,
-    fontWeight: '900',
-  },
+
   sectionLabel: {
     color: '#e2e8f0',
     fontWeight: '600',

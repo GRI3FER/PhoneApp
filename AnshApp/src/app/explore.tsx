@@ -15,10 +15,11 @@
  * 4. User can tap any expense to delete it with confirmation
  */
 
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { Alert, Pressable, SafeAreaView, SectionList, StyleSheet, Text, View } from 'react-native';
 
 import { CATEGORY_COLORS, ExpenseCategory, formatMoney, formatTime, useExpenses } from '@/context/expense-context';
+import { toLocalDayKey } from '@/utils/date';
 
 // ============================================================================
 // Types
@@ -72,7 +73,7 @@ export default function HistoryScreen() {
     const grouped = new Map<string, HistorySection>();
 
     for (const expense of expenses) {
-      const dayKey = new Date(expense.timestamp).toDateString();
+      const dayKey = toLocalDayKey(expense.timestamp);
       const existing = grouped.get(dayKey);
 
       if (existing) {
@@ -121,6 +122,9 @@ export default function HistoryScreen() {
   }, [expenses]);
 
   const totalExpenses = categoryTotals.reduce((sum, item) => sum + item.amount, 0);
+  const safeBudget = budget > 0 ? budget : 1;
+  const isOverBudget = totalExpenses > budget;
+  const overBudgetBy = Math.max(0, totalExpenses - budget);
 
   function confirmDelete(id: string) {
     Alert.alert('Delete expense?', 'This action cannot be undone.', [
@@ -140,7 +144,7 @@ export default function HistoryScreen() {
             <Text style={styles.breakdownTitle}>Category Breakdown</Text>
             <View style={styles.categoryGrid}>
               {categoryTotals.map((item) => {
-                const percentage = ((item.amount / totalExpenses) * 100).toFixed(1);
+                const percentage = ((item.amount / safeBudget) * 100).toFixed(1);
                 const color = CATEGORY_COLORS[item.category];
                 return (
                   <View key={item.category} style={styles.categoryItem}>
@@ -157,9 +161,9 @@ export default function HistoryScreen() {
 
             {/* Storage UI Style Bar Chart */}
             <View style={styles.pieChartContainer}>
-              <View style={styles.stackedBar}>
+              <View style={[styles.stackedBar, isOverBudget ? styles.stackedBarOver : null]}>
                 {categoryTotals.map((item) => {
-                  const percentage = (item.amount / budget) * 100;
+                  const percentage = (item.amount / safeBudget) * 100;
                   const color = CATEGORY_COLORS[item.category];
                   return (
                     <View
@@ -180,14 +184,18 @@ export default function HistoryScreen() {
                     styles.stackedSegment,
                     {
                       backgroundColor: '#475569',
-                      flex: Math.max(0, ((budget - totalExpenses) / budget) * 100),
+                      flex: Math.max(0, ((safeBudget - totalExpenses) / safeBudget) * 100),
                     },
                   ]}
                 />
               </View>
               <View style={styles.budgetLabels}>
                 <Text style={styles.budgetUsed}>Used: {formatMoney(totalExpenses)}</Text>
+                <Text style={styles.budgetTotal}>Budget: {formatMoney(budget)}</Text>
               </View>
+              {isOverBudget && (
+                <Text style={styles.overBudgetText}>Over by {formatMoney(overBudgetBy)}</Text>
+              )}
             </View>
           </View>
         )}
@@ -204,26 +212,41 @@ export default function HistoryScreen() {
             renderSectionHeader={({ section }) => (
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>{section.title}</Text>
-                <Text style={styles.sectionTotal}>{formatMoney(section.total)}</Text>
+                <View style={styles.sectionHeaderRight}>
+                  <Text
+                    style={[
+                      styles.sectionTotal,
+                      section.total > budget ? styles.sectionTotalOver : null,
+                    ]}>
+                    {formatMoney(section.total)}
+                  </Text>
+                  {section.total > budget && (
+                    <Text style={styles.sectionOverBy}>Over by {formatMoney(section.total - budget)}</Text>
+                  )}
+                </View>
               </View>
             )}
-            renderItem={({ item }) => (
-              <Pressable style={styles.rowCard} onPress={() => confirmDelete(item.id)}>
-                <View style={{ flex: 1 }}>
-                  <View style={styles.rowWithCategory}>
-                    <View
-                      style={[
-                        styles.categoryIndicator,
-                        { backgroundColor: CATEGORY_COLORS[item.category as ExpenseCategory] },
-                      ]}
-                    />
-                    <Text style={styles.rowTitle}>{item.category}{item.label ? ' • ' + item.label : ''}</Text>
+            renderItem={({ item }) => {
+              // Validate category to prevent crash from corrupted data
+              const categoryColor = CATEGORY_COLORS[item.category as ExpenseCategory] || '#95A5A6';
+              return (
+                <Pressable style={styles.rowCard} onPress={() => confirmDelete(item.id)}>
+                  <View style={styles.flex1}>
+                    <View style={styles.rowWithCategory}>
+                      <View
+                        style={[
+                          styles.categoryIndicator,
+                          { backgroundColor: categoryColor },
+                        ]}
+                      />
+                      <Text style={styles.rowTitle}>{item.category}{item.label ? ' • ' + item.label : ''}</Text>
+                    </View>
+                    <Text style={styles.rowMeta}>{formatTime(item.timestamp)}</Text>
                   </View>
-                  <Text style={styles.rowMeta}>{formatTime(item.timestamp)}</Text>
-                </View>
-                <Text style={styles.rowAmount}>{formatMoney(item.amount)}</Text>
-              </Pressable>
-            )}
+                  <Text style={styles.rowAmount}>{formatMoney(item.amount)}</Text>
+                </Pressable>
+              );
+            }}
           />
         )}
       </View>
@@ -232,6 +255,9 @@ export default function HistoryScreen() {
 }
 
 const styles = StyleSheet.create({
+  flex1: {
+    flex: 1,
+  },
   safeArea: {
     flex: 1,
     backgroundColor: '#0f172a',
@@ -301,55 +327,53 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   pieChartContainer: {
-    alignItems: 'center',
+    alignItems: 'stretch',
     paddingVertical: 16,
     gap: 12,
   },
   stackedBar: {
     width: '100%',
+    alignSelf: 'stretch',
     height: 40,
     borderRadius: 8,
     overflow: 'hidden',
     flexDirection: 'row',
+    alignItems: 'stretch',
     borderWidth: 2,
     borderColor: '#0f172a',
   },
+  stackedBarOver: {
+    borderColor: '#ef5350',
+  },
   stackedSegment: {
-    height: '100%',
+    alignSelf: 'stretch',
   },
   budgetLabels: {
     flexDirection: 'row',
-    justifyContent: 'flex-start',
+    justifyContent: 'space-between',
     marginTop: 10,
     paddingHorizontal: 4,
+    width: '100%',
+    alignSelf: 'stretch',
   },
   budgetUsed: {
     color: '#cbd5e1',
     fontSize: 13,
     fontWeight: '600',
   },
-  totalExpensesLabel: {
+  budgetTotal: {
     color: '#cbd5e1',
     fontSize: 13,
     fontWeight: '600',
   },
-  pieChart: {
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    overflow: 'hidden',
-    flexDirection: 'row',
-    borderWidth: 2,
-    borderColor: '#0f172a',
-  },
-  piePiece: {
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  pieLabel: {
-    fontSize: 12,
+  overBudgetText: {
+    color: '#ef5350',
+    fontSize: 13,
     fontWeight: '700',
+    width: '100%',
+    alignSelf: 'stretch',
+    textAlign: 'center',
+    paddingHorizontal: 4,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -358,6 +382,9 @@ const styles = StyleSheet.create({
     marginTop: 18,
     marginBottom: 10,
     paddingHorizontal: 4,
+  },
+  sectionHeaderRight: {
+    alignItems: 'flex-end',
   },
   sectionTitle: {
     color: '#e2e8f0',
@@ -368,6 +395,15 @@ const styles = StyleSheet.create({
     color: '#4caf50',
     fontWeight: '700',
     fontSize: 16,
+  },
+  sectionTotalOver: {
+    color: '#ef5350',
+  },
+  sectionOverBy: {
+    color: '#ef5350',
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 2,
   },
   rowCard: {
     backgroundColor: '#111827',
@@ -409,8 +445,13 @@ const styles = StyleSheet.create({
   },
   mutedText: {
     color: '#94a3b8',
+    textAlign: 'center',
+    width: '100%',
   },
   emptyList: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
     paddingTop: 8,
   },
 });

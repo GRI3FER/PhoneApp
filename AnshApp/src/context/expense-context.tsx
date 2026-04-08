@@ -12,7 +12,9 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+
+import { toLocalDayKey } from '@/utils/date';
 
 // ============================================================================
 // Types & Interfaces
@@ -54,6 +56,9 @@ type StoredData = {
 // Constants
 // ============================================================================
 
+/** Valid expense categories as a const array for validation */
+const VALID_CATEGORIES = ['Food', 'Transport', 'Fun', 'Groceries', 'Other'] as const;
+
 /** AsyncStorage key for app data */
 const STORAGE_KEY = 'broke_or_not_data_v1';
 
@@ -73,12 +78,39 @@ const BUDGET_THRESHOLD_RED = 1.0;    // 100% - "Over budget"
 
 const ExpenseContext = createContext<ExpenseContextValue | undefined>(undefined);
 
+function toProperCase(text: string) {
+  const trimmed = text.trim();
+  if (!trimmed) return '';
+
+  // Title-case by word segments, including after spaces, hyphens, and apostrophes.
+  let result = '';
+  let shouldCapitalize = true;
+
+  for (const ch of trimmed) {
+    if (ch === ' ' || ch === '-' || ch === "'") {
+      result += ch;
+      shouldCapitalize = true;
+      continue;
+    }
+
+    if (shouldCapitalize) {
+      result += ch.toUpperCase();
+      shouldCapitalize = false;
+    } else {
+      result += ch.toLowerCase();
+    }
+  }
+
+  // Collapse multiple spaces that can come from user input.
+  return result.replace(/\s+/g, ' ');
+}
+
 /**
  * Type guard to validate category strings
  * Ensures only valid categories are accepted
  */
 function isValidCategory(value: string): value is ExpenseCategory {
-  return value === 'Food' || value === 'Transport' || value === 'Fun' || value === 'Groceries' || value === 'Other';
+  return VALID_CATEGORIES.includes(value as ExpenseCategory);
 }
 
 /**
@@ -101,7 +133,7 @@ function sanitizeExpense(raw: Partial<Expense>): Expense | null {
   if (typeof raw.timestamp !== 'number' || !Number.isFinite(raw.timestamp)) {
     return null;
   }
-  const label = typeof raw.label === 'string' ? raw.label.trim() : '';
+  const label = typeof raw.label === 'string' ? toProperCase(raw.label) : '';
 
   return {
     id: raw.id,
@@ -159,6 +191,9 @@ export function ExpenseProvider({ children }: { children: React.ReactNode }) {
   const [budgetInitialized, setBudgetInitialized] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Ensures storage writes are serialized (avoids races under rapid updates)
+  const persistQueueRef = useRef<Promise<void>>(Promise.resolve());
+
   // Load data from AsyncStorage when app starts
   useEffect(() => {
     async function hydrate() {
@@ -196,9 +231,17 @@ export function ExpenseProvider({ children }: { children: React.ReactNode }) {
       budgetInitialized,
     };
 
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(payload)).catch(() => {
-      // Silently ignore write errors to keep UI responsive
-    });
+    const serialized = JSON.stringify(payload);
+
+    persistQueueRef.current = persistQueueRef.current
+      .catch(() => {
+        // Swallow previous persistence errors so the queue continues.
+      })
+      .then(() => AsyncStorage.setItem(STORAGE_KEY, serialized))
+      .catch((error) => {
+        // Log but don't throw - keep UI responsive
+        console.warn('[AsyncStorage] Failed to persist data:', error instanceof Error ? error.message : error);
+      });
   }, [expenses, budget, budgetInitialized, isLoading]);
 
   // Memoized context value to prevent unnecessary re-renders
@@ -223,7 +266,7 @@ export function ExpenseProvider({ children }: { children: React.ReactNode }) {
           category,
           amount: Math.round(amount * 100) / 100,
           timestamp: Date.now(),
-          label: label.trim(),
+          label: toProperCase(label),
         };
 
         setExpenses((current) => [next, ...current].slice(0, MAX_EXPENSES));
@@ -246,7 +289,7 @@ export function ExpenseProvider({ children }: { children: React.ReactNode }) {
         setExpenses((current) =>
           current.map((item) =>
             item.id === id
-              ? { ...item, category, amount: Math.round(amount * 100) / 100, label: label.trim() }
+              ? { ...item, category, amount: Math.round(amount * 100) / 100, label: toProperCase(label) }
               : item
           )
         );
@@ -272,6 +315,16 @@ export function ExpenseProvider({ children }: { children: React.ReactNode }) {
         setExpenses([]);
         setBudgetState(DEFAULT_BUDGET);
         setBudgetInitialized(false);
+
+        // Best-effort clear; state changes will repopulate defaults.
+        persistQueueRef.current = persistQueueRef.current
+          .catch(() => {
+            // keep queue alive
+          })
+          .then(() => AsyncStorage.removeItem(STORAGE_KEY))
+          .catch((error) => {
+            console.warn('[AsyncStorage] Failed to clear data:', error instanceof Error ? error.message : error);
+          });
       },
     }),
     [expenses, budget, budgetInitialized, isLoading],
@@ -305,17 +358,30 @@ export function useExpenses() {
  * Used for budget comparisons on home screen
  */
 export function getTodayTotal(expenses: Expense[]) {
-  const today = new Date();
-  const y = today.getFullYear();
-  const m = today.getMonth();
-  const d = today.getDate();
+  return getTotalForDay(expenses, Date.now());
+}
 
-  return expenses
-    .filter((expense) => {
-      const date = new Date(expense.timestamp);
-      return date.getFullYear() === y && date.getMonth() === m && date.getDate() === d;
-    })
-    .reduce((sum, item) => sum + item.amount, 0);
+/**
+ * Get all expenses for a given local calendar day.
+ *
+ * @param dayTimestamp - Any timestamp within the target day
+ */
+export function getExpensesForDay(expenses: Expense[], dayTimestamp: number): Expense[] {
+  const dayKey = toLocalDayKey(dayTimestamp);
+  return expenses.filter((expense) => toLocalDayKey(expense.timestamp) === dayKey);
+}
+
+/**
+ * Calculate total spending for a given local calendar day.
+ *
+ * @param dayTimestamp - Any timestamp within the target day
+ */
+export function getTotalForDay(expenses: Expense[], dayTimestamp: number): number {
+  const dayKey = toLocalDayKey(dayTimestamp);
+  return expenses.reduce(
+    (sum, expense) => (toLocalDayKey(expense.timestamp) === dayKey ? sum + expense.amount : sum),
+    0,
+  );
 }
 
 /**

@@ -1,0 +1,42 @@
+AI Tools: GitHub Copilot and Claude
+
+Prompts:
+1. I'm brand new to react native + expo. Can u explain how an expo project becomes a working app? Whats the diff vs a normal website? How is View different from a div?
+
+2. How do I add a button + a text input to a react native screen? Can u show a simple example + explain what useState does?
+
+3. I need to share expense data across multiple screens (home, history, settings). Is context api the right move or should I use redux? Can u show me a context that provides expenses + an add expense function?
+
+4. How do I save data locally so it stays after I close/reopen the app? I need to save an array of expenses and a budget value. Show me asyncstorage + when it loads/saves. Also how do I validate/sanitize stuff when loading so it doesnt crash if storage is corrupted?
+
+5. How do I set up tab navigation in expo router with 3 screens (home / history / settings)?
+
+6. Read SPEC.md in this project. Implement the full mobile app exactly as specified. 
+Create all necessary files, components, and navigation. Make sure that appropriate data is persistent. 
+Avoid security risks for sensitive data.  Include proper error handling. 
+Make sure the app starts without errors and displays the home screen correctly.
+
+7. I have expenses with timestamps (ms). How do I (1) get only todays expenses and (2) group expenses by date for the history screen? Whats the best way to compare timestamps?
+
+8. Review the React Native/Expo code in this project against the spec in SPEC.md. 
+For each acceptance criterion in the spec, verify whether the code actually implements it correctly. 
+Also check for:
+- Bugs or logic errors
+- Missing error handling
+- Code quality issues (unclear naming, repeated code, etc.)
+- Best practices for React Native or other technologies
+
+Format your review as a numbered list of findings, each marked as [PASS], [FAIL], or [WARN]. 
+Be specific. Reference file names and line numbers. 
+Export the review as REVIEW.md at the root of the project.
+
+9. On the home screen I want: tap a category button → open a modal → type an amount → submit/cancel. How do I build that modal flow?
+
+10. Can u help me set up the android studio emulator + get expo go working so I can run the app on the simulator?
+
+Setup / emulator prompts:
+- Start the emulation
+- Is server on
+- Emulate via Android Studio
+- Use Android Studio and download Expo Go
+- Finish setting up the Android Studio emulation

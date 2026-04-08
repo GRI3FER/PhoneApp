@@ -15,9 +15,31 @@
  * 5. Confirmation dialog prevents accidental data loss
  */
 
-import React, { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, Pressable, SafeAreaView, StyleSheet, Text, TextInput, View } from 'react-native';
 
+function sanitizeDecimalInput(text: string) {
+  const normalized = text.replace(/,/g, '.');
+  let out = '';
+  let hasDot = false;
+
+  for (const ch of normalized) {
+    if (ch >= '0' && ch <= '9') {
+      out += ch;
+      continue;
+    }
+    if (ch === '.' && !hasDot) {
+      out += ch;
+      hasDot = true;
+    }
+  }
+
+  if (out.startsWith('.')) {
+    out = `0${out}`;
+  }
+
+  return out;
+}
 import { formatMoney, useExpenses } from '@/context/expense-context';
 
 // ============================================================================
@@ -29,6 +51,11 @@ export default function SettingsScreen() {
   
   // State for budget input field
   const [budgetInput, setBudgetInput] = useState(budget.toFixed(2));
+  
+  // Sync local input when context budget changes
+  useEffect(() => {
+    setBudgetInput(budget.toFixed(2));
+  }, [budget]);
 
   // =========================================================================
   // Event Handlers
@@ -68,14 +95,14 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <Text style={styles.header}>Settings</Text>
+        <Text style={styles.header}>Budget</Text>
         <Text style={styles.subHeader}>Set your daily budget and manage app data.</Text>
 
         <View style={styles.card}>
           <Text style={styles.label}>Daily budget</Text>
           <TextInput
             value={budgetInput}
-            onChangeText={setBudgetInput}
+            onChangeText={(text) => setBudgetInput(sanitizeDecimalInput(text))}
             keyboardType="decimal-pad"
             placeholder="30.00"
             placeholderTextColor="#94a3b8"
