@@ -15,7 +15,7 @@
  * 4. User can tap any expense to delete it with confirmation
  */
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Alert, Pressable, SafeAreaView, SectionList, StyleSheet, Text, View } from 'react-native';
 
 import { CATEGORY_COLORS, ExpenseCategory, formatMoney, formatTime, useExpenses } from '@/context/expense-context';
@@ -125,6 +125,7 @@ export default function HistoryScreen() {
   const safeBudget = budget > 0 ? budget : 1;
   const isOverBudget = totalExpenses > budget;
   const overBudgetBy = Math.max(0, totalExpenses - budget);
+  const [stackedBarWidth, setStackedBarWidth] = useState(0);
 
   function confirmDelete(id: string) {
     Alert.alert('Delete expense?', 'This action cannot be undone.', [
@@ -162,32 +163,45 @@ export default function HistoryScreen() {
             {/* Storage UI Style Bar Chart */}
             <View style={styles.pieChartContainer}>
               <View style={[styles.stackedBar, isOverBudget ? styles.stackedBarOver : null]}>
-                {categoryTotals.map((item) => {
-                  const percentage = (item.amount / safeBudget) * 100;
-                  const color = CATEGORY_COLORS[item.category];
-                  return (
-                    <View
-                      key={item.category}
-                      style={[
-                        styles.stackedSegment,
-                        {
-                          backgroundColor: color,
-                          flex: percentage,
-                        },
-                      ]}
-                    />
-                  );
-                })}
-                {/* Remaining budget as grey */}
                 <View
-                  style={[
-                    styles.stackedSegment,
-                    {
-                      backgroundColor: '#475569',
-                      flex: Math.max(0, ((safeBudget - totalExpenses) / safeBudget) * 100),
-                    },
-                  ]}
-                />
+                  style={styles.stackedBarInner}
+                  onLayout={(e) => {
+                    const nextWidth = Math.round(e.nativeEvent.layout.width);
+                    if (nextWidth > 0 && nextWidth !== stackedBarWidth) setStackedBarWidth(nextWidth);
+                  }}>
+                  {(() => {
+                    // Use rounded pixel boundaries to prevent sub-pixel seams.
+                    // Compute each segment's left/right from cumulative ratio.
+                    let runningRatio = 0;
+                    return categoryTotals.map((item) => {
+                      const ratio = item.amount / safeBudget;
+                      const clamped = Math.max(0, Math.min(1 - runningRatio, ratio));
+                      const nextRunning = Math.min(1, runningRatio + clamped);
+
+                      const leftPx = stackedBarWidth > 0 ? Math.round(runningRatio * stackedBarWidth) : 0;
+                      const rightPx = stackedBarWidth > 0 ? Math.round(nextRunning * stackedBarWidth) : 0;
+                      const widthPx = Math.max(0, rightPx - leftPx);
+
+                      runningRatio = nextRunning;
+
+                      if (stackedBarWidth <= 0 || widthPx <= 0) return null;
+
+                      return (
+                        <View
+                          key={item.category}
+                          style={[
+                            styles.stackedSegment,
+                            {
+                              backgroundColor: CATEGORY_COLORS[item.category],
+                              left: leftPx,
+                              width: widthPx,
+                            },
+                          ]}
+                        />
+                      );
+                    });
+                  })()}
+                </View>
               </View>
               <View style={styles.budgetLabels}>
                 <Text style={styles.budgetUsed}>Used: {formatMoney(totalExpenses)}</Text>
@@ -336,17 +350,23 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     height: 40,
     borderRadius: 8,
-    overflow: 'hidden',
-    flexDirection: 'row',
-    alignItems: 'stretch',
+    position: 'relative',
     borderWidth: 2,
     borderColor: '#0f172a',
+  },
+  stackedBarInner: {
+    flex: 1,
+    overflow: 'hidden',
+    borderRadius: 6,
+    backgroundColor: '#475569',
   },
   stackedBarOver: {
     borderColor: '#ef5350',
   },
   stackedSegment: {
-    alignSelf: 'stretch',
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
   },
   budgetLabels: {
     flexDirection: 'row',
