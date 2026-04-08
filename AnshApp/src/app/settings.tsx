@@ -17,6 +17,9 @@
 
 import { useEffect, useState } from 'react';
 import { Alert, Pressable, SafeAreaView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { formatMoney, useExpenses } from '@/context/expense-context';
 
 function sanitizeDecimalInput(text: string) {
   const normalized = text.replace(/,/g, '.');
@@ -40,7 +43,6 @@ function sanitizeDecimalInput(text: string) {
 
   return out;
 }
-import { formatMoney, useExpenses } from '@/context/expense-context';
 
 // ============================================================================
 // Component
@@ -48,6 +50,7 @@ import { formatMoney, useExpenses } from '@/context/expense-context';
 
 export default function SettingsScreen() {
   const { budget, setBudget, clearAllData } = useExpenses();
+  const insets = useSafeAreaInsets();
   
   // State for budget input field
   const [budgetInput, setBudgetInput] = useState(budget.toFixed(2));
@@ -93,7 +96,7 @@ export default function SettingsScreen() {
   // =========================================================================
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { paddingTop: insets.top }]}>
       <View style={styles.container}>
         <Text style={styles.header}>Budget</Text>
         <Text style={styles.subHeader}>Set your daily budget and manage app data.</Text>
@@ -140,10 +143,14 @@ const styles = StyleSheet.create({
     color: '#f8fafc',
     fontSize: 28,
     fontWeight: '700',
+    textAlign: 'center',
+    width: '100%',
   },
   subHeader: {
     color: '#cbd5e1',
     fontSize: 14,
+    textAlign: 'center',
+    width: '100%',
   },
   card: {
     backgroundColor: '#111827',

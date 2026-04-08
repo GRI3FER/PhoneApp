@@ -17,6 +17,7 @@
 
 import { useMemo, useState } from 'react';
 import { Alert, Pressable, SafeAreaView, SectionList, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CATEGORY_COLORS, ExpenseCategory, formatMoney, formatTime, useExpenses } from '@/context/expense-context';
 import { toLocalDayKey } from '@/utils/date';
@@ -60,6 +61,7 @@ function formatDay(timestamp: number) {
 
 export default function HistoryScreen() {
   const { expenses, budget, deleteExpense, isLoading } = useExpenses();
+  const insets = useSafeAreaInsets();
 
   // =========================================================================
   // Computed Values
@@ -135,7 +137,7 @@ export default function HistoryScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { paddingTop: insets.top }]}>
       <View style={styles.container}>
         <Text style={styles.header}>History</Text>
         <Text style={styles.subHeader}>Tap an item to delete it.</Text>
@@ -286,11 +288,15 @@ const styles = StyleSheet.create({
     color: '#f8fafc',
     fontSize: 28,
     fontWeight: '700',
+    textAlign: 'center',
+    width: '100%',
   },
   subHeader: {
     color: '#cbd5e1',
     fontSize: 14,
     marginBottom: 12,
+    textAlign: 'center',
+    width: '100%',
   },
   categoryBreakdownSection: {
     backgroundColor: '#111827',

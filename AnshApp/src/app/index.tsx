@@ -32,6 +32,7 @@ import {
   Alert,
 } from 'react-native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   Expense,
@@ -43,8 +44,6 @@ import {
   getBudgetStatus,
   useExpenses,
 } from '@/context/expense-context';
-
-import { toLocalDayKey } from '@/utils/date';
 
 // ============================================================================
 // Constants
@@ -105,6 +104,7 @@ function sanitizeDecimalInput(text: string) {
 
 export default function HomeScreen() {
   const { expenses, budget, addExpense, editExpense, deleteExpense, setBudget, budgetInitialized, isLoading } = useExpenses();
+  const insets = useSafeAreaInsets();
 
   // State for initial budget setup
   const [budgetSetupAmount, setBudgetSetupAmount] = useState(budget.toFixed(2));
@@ -123,13 +123,10 @@ export default function HomeScreen() {
   // Computed Values
   // =========================================================================
 
-  const nowTimestamp = Date.now();
-  const todayKey = toLocalDayKey(nowTimestamp);
-
   /** Filter expenses to only today's spending (for display) */
   const todayExpenses = useMemo(() => {
-    return getExpensesForDay(expenses, nowTimestamp);
-  }, [expenses, todayKey]);
+    return getExpensesForDay(expenses, Date.now());
+  }, [expenses]);
 
   /** Calculate today's total spending */
   const todayTotal = useMemo(() => todayExpenses.reduce((sum, item) => sum + item.amount, 0), [todayExpenses]);
@@ -236,12 +233,13 @@ export default function HomeScreen() {
         budgetSetupAmount={budgetSetupAmount}
         setBudgetSetupAmount={setBudgetSetupAmount}
         onSetupBudget={onSetupBudget}
+        topInset={insets.top}
       />
     );
   }
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: status.backgroundColor }]}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: status.backgroundColor, paddingTop: insets.top }]}>
       <View style={styles.container}>
         <StatusSection
           todayTotal={todayTotal}
@@ -297,13 +295,15 @@ function BudgetSetupScreen({
   budgetSetupAmount,
   setBudgetSetupAmount,
   onSetupBudget,
+  topInset,
 }: {
   budgetSetupAmount: string;
   setBudgetSetupAmount: (value: string) => void;
   onSetupBudget: () => void;
+  topInset: number;
 }) {
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { paddingTop: topInset }]}>
       <View style={styles.container}>
         <Text style={styles.header}>Welcome!</Text>
         <Text style={styles.subHeader}>Let&apos;s set up your daily budget</Text>
@@ -402,7 +402,7 @@ function TodayExpensesSection({
 }) {
   return (
     <>
-      <Text style={styles.sectionLabel}>TODAY'S EXPENSES</Text>
+      <Text style={styles.sectionLabel}>TODAY&apos;S EXPENSES</Text>
       {isLoading ? (
         <Text style={styles.mutedText}>Loading...</Text>
       ) : (
@@ -577,10 +577,14 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: '800',
     letterSpacing: -0.5,
+    textAlign: 'center',
+    width: '100%',
   },
   subHeader: {
     color: '#a0aec0',
     fontSize: 13,
+    textAlign: 'center',
+    width: '100%',
   },
 
   sectionLabel: {
